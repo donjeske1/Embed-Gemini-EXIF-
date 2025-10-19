@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import type { View } from './types';
-import { generateImageFromPrompt } from './services/geminiService';
+import { generateImageFromPrompt, ReferenceImage } from './services/geminiService';
 
 // To inform TypeScript about the global piexif object from the CDN script
 declare const piexif: any;
@@ -112,6 +112,8 @@ interface ImageGeneratorProps {
   onPromptChange: (newPrompt: string) => void;
   promptMode: PromptMode;
   onPromptModeChange: (mode: PromptMode) => void;
+  referenceImages: string[];
+  onReferenceImagesChange: (images: string[]) => void;
 }
 
 const ImageGenerator: React.FC<ImageGeneratorProps> = ({ 
@@ -122,8 +124,11 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
     prompt, 
     onPromptChange,
     promptMode,
-    onPromptModeChange
+    onPromptModeChange,
+    referenceImages,
+    onReferenceImagesChange,
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,12 +147,38 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
       }
   };
 
+  const handleAddImages = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newImagePromises: Promise<string>[] = [];
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            newImagePromises.push(new Promise((resolve, reject) => {
+                reader.onload = (event) => resolve(event.target?.result as string);
+                reader.onerror = (error) => reject(error);
+                reader.readAsDataURL(file);
+            }));
+        }
+    }
+
+    Promise.all(newImagePromises).then(imageDataUrls => {
+        onReferenceImagesChange([...referenceImages, ...imageDataUrls]);
+    }).catch(console.error);
+  };
+  
+  const handleRemoveImage = (indexToRemove: number) => {
+      onReferenceImagesChange(referenceImages.filter((_, index) => index !== indexToRemove));
+  };
+
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-sky-400">Generate Image with Embedded Prompt</h2>
-        <p className="text-slate-400 mt-1">Enter a prompt to generate an image. The prompt will be embedded into the image's EXIF metadata.</p>
+        <p className="text-slate-400 mt-1">Enter a prompt and optionally add reference images to guide the generation.</p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -179,6 +210,43 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
           }
           className="w-full h-48 p-3 bg-slate-800 border border-slate-600 rounded-md focus:ring-2 focus:ring-sky-500 focus:border-sky-500 font-mono text-sm"
         />
+        
+        {/* Reference Images Section */}
+        <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-300">Reference Images (Optional)</label>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                {referenceImages.map((imgSrc, index) => (
+                    <div key={index} className="relative group">
+                        <img src={imgSrc} alt={`Reference ${index + 1}`} className="w-full h-24 object-cover rounded-md" />
+                        <button 
+                            type="button"
+                            onClick={() => handleRemoveImage(index)}
+                            className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label="Remove image"
+                        >
+                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                        </button>
+                    </div>
+                ))}
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full h-24 flex items-center justify-center border-2 border-dashed border-slate-600 rounded-md hover:border-sky-500 text-slate-400 hover:text-sky-400 transition-colors"
+                >
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                   <span className="sr-only">Add image</span>
+                </button>
+            </div>
+             <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/jpeg,image/png"
+                onChange={handleAddImages}
+                className="hidden"
+            />
+        </div>
+
         <button type="submit" disabled={isLoading} className="w-full flex justify-center items-center gap-2 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-500 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md transition-colors">
           {isLoading ? <><LoaderIcon /> Generating...</> : 'Generate Image'}
         </button>
@@ -374,6 +442,7 @@ const App: React.FC = () => {
   const [prompt, setPrompt] = useState<string>(DEFAULT_PROMPT);
   const [promptMode, setPromptMode] = useState<PromptMode>('text');
   const [generationHistory, setGenerationHistory] = useState<HistoryItem[]>([]);
+  const [referenceImages, setReferenceImages] = useState<string[]>([]); // Data URLs
   
   const [extractedPrompt, setExtractedPrompt] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -408,8 +477,15 @@ const App: React.FC = () => {
         return;
     }
 
+    // Prepare reference images for the API call by stripping data URL prefixes
+    const imagePartsForApi: ReferenceImage[] = referenceImages.map(dataUrl => {
+        const [meta, data] = dataUrl.split(',');
+        const mimeType = meta.match(/:(.*?);/)?.[1] || 'image/jpeg';
+        return { mimeType, data };
+    });
+
     try {
-      const base64Image = await generateImageFromPrompt(promptToEmbed);
+      const base64Image = await generateImageFromPrompt(promptToEmbed, imagePartsForApi);
       const imageWithMetadata = await embedPromptInImage(base64Image, 'image/png', promptToEmbed);
       setGeneratedImage(imageWithMetadata);
 
@@ -420,13 +496,14 @@ const App: React.FC = () => {
           timestamp: Date.now()
       };
       setGenerationHistory(prev => [newHistoryItem, ...prev]);
+      setReferenceImages([]); // Clear reference images after successful generation
 
     } catch (e: any) {
       setError(e.message || "An unknown error occurred.");
     } finally {
       setIsLoading(false);
     }
-  }, [promptMode]);
+  }, [promptMode, referenceImages]);
   
   const handleSelectHistoryItem = useCallback((item: HistoryItem) => {
     try {
@@ -438,6 +515,7 @@ const App: React.FC = () => {
     }
     setPromptMode('json'); // History prompts are always JSON
     setGeneratedImage(item.image);
+    setReferenceImages([]); // Clear any selected reference images
     setError(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
@@ -466,6 +544,7 @@ const App: React.FC = () => {
         setPrompt(extractedPrompt);
       }
       setPromptMode('json'); // Extracted prompts are always JSON
+      setReferenceImages([]); // Clear any selected reference images
       setView('generate');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -556,6 +635,8 @@ const App: React.FC = () => {
                         onPromptChange={setPrompt}
                         promptMode={promptMode}
                         onPromptModeChange={setPromptMode}
+                        referenceImages={referenceImages}
+                        onReferenceImagesChange={setReferenceImages}
                     />
                     <GenerationHistory 
                         history={generationHistory}
