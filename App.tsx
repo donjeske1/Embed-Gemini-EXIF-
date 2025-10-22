@@ -185,18 +185,18 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-sky-400">Generate Image</h2>
+        <h2 className="text-xl font-semibold text-indigo-400">Generate Image</h2>
         <p className="text-slate-400 mt-1">Select a model, enter a prompt, and generate an image with embedded metadata.</p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Model Selection */}
         <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Model</label>
-            <div className="flex rounded-md shadow-sm">
-                <button type="button" onClick={() => onModelChange('gemini-2.5-flash-image')} className={`px-4 py-2 text-sm font-medium rounded-l-md w-full transition-colors ${!isImagen ? 'bg-sky-600 text-white z-10 ring-1 ring-sky-500' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+            <div className="flex rounded-lg shadow-sm">
+                <button type="button" onClick={() => onModelChange('gemini-2.5-flash-image')} className={`px-4 py-2 text-sm font-medium rounded-l-lg w-full transition-colors duration-200 ${!isImagen ? 'bg-indigo-600 text-white z-10 ring-1 ring-indigo-500' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'}`}>
                     Nano Banana <span className="text-xs opacity-75">(Fast, Edits)</span>
                 </button>
-                <button type="button" onClick={() => onModelChange('imagen-4.0-generate-001')} className={`-ml-px px-4 py-2 text-sm font-medium rounded-r-md w-full transition-colors ${isImagen ? 'bg-sky-600 text-white z-10 ring-1 ring-sky-500' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+                <button type="button" onClick={() => onModelChange('imagen-4.0-generate-001')} className={`-ml-px px-4 py-2 text-sm font-medium rounded-r-lg w-full transition-colors duration-200 ${isImagen ? 'bg-indigo-600 text-white z-10 ring-1 ring-indigo-500' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'}`}>
                     Imagen <span className="text-xs opacity-75">(High Quality)</span>
                 </button>
             </div>
@@ -206,11 +206,11 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
         {!isImagen && (
           <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Prompt Mode</label>
-              <div className="flex rounded-md shadow-sm">
-                  <button type="button" onClick={() => onPromptModeChange('text')} className={`px-4 py-2 text-sm font-medium rounded-l-md w-full transition-colors ${promptMode === 'text' ? 'bg-sky-600 text-white z-10 ring-1 ring-sky-500' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+              <div className="flex rounded-lg shadow-sm">
+                  <button type="button" onClick={() => onPromptModeChange('text')} className={`px-4 py-2 text-sm font-medium rounded-l-lg w-full transition-colors duration-200 ${promptMode === 'text' ? 'bg-indigo-600 text-white z-10 ring-1 ring-indigo-500' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'}`}>
                       Freeform Text
                   </button>
-                  <button type="button" onClick={() => onPromptModeChange('json')} className={`-ml-px px-4 py-2 text-sm font-medium rounded-r-md w-full transition-colors ${promptMode === 'json' ? 'bg-sky-600 text-white z-10 ring-1 ring-sky-500' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+                  <button type="button" onClick={() => onPromptModeChange('json')} className={`-ml-px px-4 py-2 text-sm font-medium rounded-r-lg w-full transition-colors duration-200 ${promptMode === 'json' ? 'bg-indigo-600 text-white z-10 ring-1 ring-indigo-500' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'}`}>
                       JSON
                   </button>
               </div>
@@ -221,7 +221,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
           value={displayPrompt}
           onChange={handlePromptTextAreaChange}
           placeholder={promptMode === 'text' || isImagen ? 'e.g., A photo of a cat programming on a laptop' : 'e.g., { "text": "A photo of a cat..." }'}
-          className="w-full h-48 p-3 bg-slate-800 border border-slate-600 rounded-md focus:ring-2 focus:ring-sky-500 focus:border-sky-500 font-mono text-sm"
+          className="w-full h-48 p-3 bg-slate-800/80 border border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm transition-colors duration-200"
         />
 
         {/* Aspect Ratio for Imagen */}
@@ -230,7 +230,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
             <label className="block text-sm font-medium text-slate-300 mb-2">Aspect Ratio</label>
             <div className="grid grid-cols-5 gap-2">
                 {aspectRatios.map(ratio => (
-                    <button key={ratio} type="button" onClick={() => onAspectRatioChange(ratio)} className={`py-2 text-sm font-mono rounded-md transition-colors ${aspectRatio === ratio ? 'bg-sky-600 text-white ring-1 ring-sky-500' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+                    <button key={ratio} type="button" onClick={() => onAspectRatioChange(ratio)} className={`py-2 text-sm font-mono rounded-lg transition-colors duration-200 ${aspectRatio === ratio ? 'bg-indigo-600 text-white ring-1 ring-indigo-500' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'}`}>
                         {ratio}
                     </button>
                 ))}
@@ -245,13 +245,13 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                   {referenceImages.map((imgSrc, index) => (
                       <div key={index} className="relative group">
-                          <img src={imgSrc} alt={`Reference ${index + 1}`} className="w-full h-24 object-cover rounded-md" />
-                          <button type="button" onClick={() => handleRemoveImage(index)} className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 leading-none opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Remove image">
+                          <img src={imgSrc} alt={`Reference ${index + 1}`} className="w-full h-24 object-cover rounded-lg" />
+                          <button type="button" onClick={() => handleRemoveImage(index)} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 leading-none opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Remove image">
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                           </button>
                       </div>
                   ))}
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full h-24 flex items-center justify-center border-2 border-dashed border-slate-600 rounded-md hover:border-sky-500 text-slate-400 hover:text-sky-400 transition-colors">
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full h-24 flex items-center justify-center border-2 border-dashed border-slate-700 rounded-lg hover:border-indigo-500 text-slate-400 hover:text-indigo-400 transition-colors duration-200">
                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                      <span className="sr-only">Add image</span>
                   </button>
@@ -261,16 +261,16 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
         )}
         {isImagen && <p className="text-xs text-slate-500">Reference images are not supported by the Imagen model.</p>}
 
-        <button type="submit" disabled={isLoading} className="w-full flex justify-center items-center gap-2 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-500 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md transition-colors">
+        <button type="submit" disabled={isLoading} className="w-full flex justify-center items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200">
           {isLoading ? <><LoaderIcon /> Generating...</> : 'Generate Image'}
         </button>
       </form>
-      {error && <div className="text-red-400 bg-red-900/50 p-3 rounded-md">{error}</div>}
+      {error && <div className="text-red-400 bg-red-900/50 p-3 rounded-lg">{error}</div>}
       {generatedImage && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Generated Image:</h3>
-          <img src={generatedImage} alt="Generated by AI" className="rounded-lg shadow-lg max-w-full mx-auto" />
-          <a href={generatedImage} download="generated-image-with-prompt.jpg" className="block w-full text-center bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-md transition-colors">
+          <img src={generatedImage} alt="Generated by AI" className="rounded-xl shadow-lg max-w-full mx-auto" />
+          <a href={generatedImage} download="generated-image-with-prompt.jpg" className="block w-full text-center bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200">
             Download Image with Embedded Metadata
           </a>
         </div>
@@ -316,23 +316,23 @@ const PromptExtractor: React.FC<PromptExtractorProps> = ({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-sky-400">Extract Metadata from Image</h2>
+        <h2 className="text-xl font-semibold text-indigo-400">Extract Metadata from Image</h2>
         <p className="text-slate-400 mt-1">Upload an image (JPEG) to check for an embedded generation prompt and other metadata.</p>
       </div>
       <input
         type="file"
         accept="image/jpeg,image/png"
         onChange={handleFileChange}
-        className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-sky-100 file:text-sky-700 hover:file:bg-sky-200"
+        className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 transition-colors duration-200"
       />
       {imagePreview && (
          <div className="space-y-4">
            <h3 className="text-lg font-semibold">Image Preview:</h3>
-           <img src={imagePreview} alt="Uploaded preview" className="rounded-lg shadow-lg max-w-full mx-auto" />
+           <img src={imagePreview} alt="Uploaded preview" className="rounded-xl shadow-lg max-w-full mx-auto" />
          </div>
       )}
       {extractionMessage && (
-        <div className={`p-4 rounded-md ${isPromptValid ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300'}`}>
+        <div className={`p-4 rounded-lg ${isPromptValid ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300'}`}>
             <h3 className="font-bold text-lg mb-2">
               {extractedMetadata 
                 ? (isPromptValid ? "Metadata Found!" : "Invalid Prompt Found") 
@@ -354,21 +354,21 @@ const PromptExtractor: React.FC<PromptExtractorProps> = ({
                  <textarea
                     value={displayPrompt}
                     onChange={handlePromptTextAreaChange}
-                    className={`w-full h-48 p-3 bg-slate-900 border rounded-md focus:ring-2 font-mono text-sm transition-colors ${
+                    className={`w-full h-48 p-3 bg-slate-900 border rounded-lg focus:ring-2 font-mono text-sm transition-colors duration-200 ${
                         isPromptValid ? 'border-green-500/60 focus:ring-green-500 focus:border-green-500' : 'border-red-500/60 focus:ring-red-500 focus:border-red-500'
                     }`}
                     aria-label="Editable prompt text"
                 />
             ) : (
-                <pre className={`bg-slate-800 p-4 rounded-md text-slate-300 text-sm overflow-x-auto border transition-colors ${
+                <pre className={`bg-slate-800/80 p-4 rounded-lg text-slate-300 text-sm overflow-x-auto border ${
                     isPromptValid ? 'border-green-700/40' : 'border-red-700/40'
                 }`}><code>{displayPrompt}</code></pre>
             )}
              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 pt-2">
-                <button onClick={onToggleEdit} className="flex-1 bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-md transition-colors">
+                <button onClick={onToggleEdit} className="flex-1 bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
                   {isEditing ? 'Done Editing' : 'Edit Metadata'}
                 </button>
-                <button onClick={onUsePrompt} disabled={!isPromptValid} className="flex-1 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-500 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md transition-colors">
+                <button onClick={onUsePrompt} disabled={!isPromptValid} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
                   Use this Metadata
                 </button>
             </div>
@@ -388,25 +388,25 @@ const GenerationHistory: React.FC<GenerationHistoryProps> = ({ history, onSelect
     if (history.length === 0) return null;
 
     return (
-        <div className="mt-8 pt-6 border-t border-slate-700">
-            <button onClick={() => setIsOpen(!isOpen)} className="w-full flex justify-between items-center text-left text-xl font-semibold text-sky-400 mb-4" aria-expanded={isOpen}>
+        <div className="mt-8 pt-6 border-t border-slate-800">
+            <button onClick={() => setIsOpen(!isOpen)} className="w-full flex justify-between items-center text-left text-xl font-semibold text-indigo-400 mb-4" aria-expanded={isOpen}>
                 Generation History ({history.length})
                 <svg className={`w-6 h-6 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : 'rotate-0'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
             </button>
             {isOpen && (
                 <ul className="space-y-4">
                     {history.map((item) => (
-                        <li key={item.id} className="bg-slate-800 p-4 rounded-lg flex items-start gap-4">
-                            <img src={item.image} alt="History thumbnail" className="w-20 h-20 object-cover rounded-md flex-shrink-0" />
+                        <li key={item.id} className="bg-slate-800/50 p-4 rounded-xl flex items-start gap-4">
+                            <img src={item.image} alt="History thumbnail" className="w-20 h-20 object-cover rounded-lg flex-shrink-0" />
                             <div className="flex-grow overflow-hidden">
                                 <p className="text-xs text-slate-400 font-mono whitespace-pre-wrap break-words line-clamp-3" title={item.metadata.prompt}>
                                     {formatJsonDisplay(item.metadata.prompt)}
                                 </p>
                                 <div className="mt-3 flex items-center gap-3">
-                                    <button onClick={() => onSelectItem(item)} className="text-sm bg-sky-700 hover:bg-sky-600 text-white font-semibold py-1 px-3 rounded-md transition-colors">
+                                    <button onClick={() => onSelectItem(item)} className="text-sm bg-indigo-700 hover:bg-indigo-600 text-white font-semibold py-1 px-3 rounded-md transition-colors duration-200">
                                         Use
                                     </button>
-                                    <a href={item.image} download={`generated-image-${item.id}.jpg`} className="text-sm bg-slate-600 hover:bg-slate-500 text-white font-semibold py-1 px-3 rounded-md transition-colors">
+                                    <a href={item.image} download={`generated-image-${item.id}.jpg`} className="text-sm bg-slate-600 hover:bg-slate-500 text-white font-semibold py-1 px-3 rounded-md transition-colors duration-200">
                                         Download
                                     </a>
                                 </div>
@@ -604,23 +604,20 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 flex flex-col items-center p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen flex flex-col items-center p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-2xl mx-auto">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-cyan-300">
-            Gemini EXIF Data Embedder
-          </h1>
-          <p className="text-slate-400 mt-2">Generate AI images and manage embedded metadata prompts.</p>
+        <header className="text-center mb-8 px-4">
+          <img src="/logo.svg" alt="Gemini EXIF Data Embedder" className="max-w-md w-full mx-auto" />
         </header>
 
-        <main className="bg-slate-800/50 rounded-lg shadow-2xl p-1 backdrop-blur-sm">
-           <div className="bg-slate-800 rounded-md p-6 sm:p-8">
-            <div className="border-b border-slate-700 mb-6">
+        <main className="bg-slate-900/70 rounded-xl shadow-2xl p-1 backdrop-blur-lg">
+           <div className="bg-slate-900 rounded-lg p-6 sm:p-8">
+            <div className="border-b border-slate-800 mb-6">
                 <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-                    <button onClick={() => setView('generate')} className={`${view === 'generate' ? 'border-sky-500 text-sky-400' : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}>
+                    <button onClick={() => setView('generate')} className={`${view === 'generate' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}>
                         Generate Image
                     </button>
-                    <button onClick={() => setView('extract')} className={`${view === 'extract' ? 'border-sky-500 text-sky-400' : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-500'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}>
+                    <button onClick={() => setView('extract')} className={`${view === 'extract' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}>
                         Extract Metadata
                     </button>
                 </nav>

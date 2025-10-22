@@ -1,0 +1,23 @@
+{
+  "name": "Gemini EXIF Data Embedder",
+  "short_name": "Gemini EXIF",
+  "description": "An application to generate images from JSON prompts using Gemini's 'nano banana' model, embed the prompt into the image metadata, and extract prompts from uploaded images.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
