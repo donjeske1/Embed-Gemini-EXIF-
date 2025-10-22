@@ -606,8 +606,11 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-2xl mx-auto">
-        <header className="text-center mb-8 px-4">
-          <img src="/logo.svg" alt="Gemini EXIF Data Embedder" className="max-w-md w-full mx-auto" />
+        <header className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">
+            Gemini EXIF Data Embedder
+          </h1>
+          <p className="text-slate-400 mt-2">Generate AI images and manage embedded metadata prompts.</p>
         </header>
 
         <main className="bg-slate-900/70 rounded-xl shadow-2xl p-1 backdrop-blur-lg">

@@ -1,4 +1,3 @@
-
 const CACHE_NAME = 'gemini-exif-pwa-v1';
 const URLS_TO_CACHE_ON_INSTALL = [
     '/',
@@ -6,7 +5,6 @@ const URLS_TO_CACHE_ON_INSTALL = [
     '/manifest.json',
     '/icon-192.svg',
     '/icon-512.svg',
-    '/logo.svg',
 ];
 
 self.addEventListener('install', event => {
