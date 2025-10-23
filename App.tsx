@@ -192,6 +192,20 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
 
   const selectedImageUrl = generatedImages ? generatedImages[selectedImageIndex] : null;
 
+  const handleDownloadAll = () => {
+    if (!generatedImages) return;
+    // Using a consistent timestamp for the batch helps group downloaded files.
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    generatedImages.forEach((imgSrc, index) => {
+        const link = document.createElement('a');
+        link.href = imgSrc;
+        link.download = `generated-image-${timestamp}-${index + 1}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -291,7 +305,15 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
       {error && <div className="text-red-400 bg-red-900/50 p-3 rounded-lg">{error}</div>}
       {generatedImages && generatedImages.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Generated Images:</h3>
+          <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Generated Images:</h3>
+              {generatedImages.length > 1 && (
+                  <button onClick={handleDownloadAll} className="bg-sky-600 hover:bg-sky-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                      Download All ({generatedImages.length})
+                  </button>
+              )}
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {generatedImages.map((imgSrc, index) => (
                   <button key={index} onClick={() => setSelectedImageIndex(index)} className={`rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 ${selectedImageIndex === index ? 'ring-2 ring-indigo-500' : 'ring-1 ring-slate-700 hover:ring-indigo-600'}`}>
