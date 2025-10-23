@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { View, ImageModel, AspectRatio } from './types';
 import { generateImagesFromPrompt, ReferenceImage } from './services/geminiService';
@@ -484,6 +483,50 @@ const GenerationHistory: React.FC<GenerationHistoryProps> = ({ history, onSelect
     );
 };
 
+const FutureFeatures: React.FC = () => {
+    const features = [
+        {
+            icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.934L13 17.256A1 1 0 0112 18a1 1 0 01-.967-.744L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.934L11 2.744A1 1 0 0112 2z" clipRule="evenodd" /></svg>,
+            title: "AI-Powered Prompt Enhancement",
+            description: "Turn simple ideas into rich, detailed prompts. Let the AI suggest creative variations for you to explore."
+        },
+        {
+            icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" /></svg>,
+            title: "Describe Image (Reverse Prompting)",
+            description: "Upload any image and have the AI generate a descriptive prompt for it, perfect for recreating a style or subject."
+        },
+        {
+            icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" /></svg>,
+            title: "Conversational Image Refinement",
+            description: "Iteratively edit your creations. After generating an image, use chat commands like 'make it night' or 'add a hat'."
+        },
+        {
+            icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>,
+            title: "Grounded Generation with Web Search",
+            description: "Create images based on real-world, up-to-date information by allowing the model to use Google Search for details."
+        }
+    ];
+
+    return (
+        <div className="mt-12 pt-8 border-t border-slate-800">
+            <h2 className="text-xl font-semibold text-indigo-400 mb-6 text-center">Future AI Feature Ideas</h2>
+            <div className="space-y-4">
+                {features.map(feature => (
+                     <div key={feature.title} className="bg-slate-800/50 p-4 rounded-xl flex items-start gap-4 transition-all hover:bg-slate-800 hover:ring-1 hover:ring-indigo-700/50">
+                        <div className="flex-shrink-0 bg-slate-700/80 rounded-full h-10 w-10 flex items-center justify-center text-indigo-400">
+                            {feature.icon}
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-slate-200">{feature.title}</h3>
+                            <p className="text-sm text-slate-400 mt-1">{feature.description}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 
 // --- Main App Component ---
 
@@ -722,6 +765,9 @@ const App: React.FC = () => {
             )}
            </div>
         </main>
+        <footer className="w-full max-w-2xl mx-auto mt-8">
+             <FutureFeatures />
+        </footer>
       </div>
     </div>
   );
