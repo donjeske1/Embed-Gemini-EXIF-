@@ -15,68 +15,79 @@ export interface ReferenceImage {
 interface GenerationConfig {
     aspectRatio?: AspectRatio;
     referenceImages?: ReferenceImage[];
+    numberOfImages?: number;
 }
 
-export const generateImageFromPrompt = async (
+export const generateImagesFromPrompt = async (
     prompt: string,
     model: ImageModel,
     config: GenerationConfig = {}
-): Promise<string> => {
+): Promise<string[]> => {
     try {
+        const numImages = config.numberOfImages || 1;
+
         if (model === 'imagen-4.0-generate-001') {
             const response = await ai.models.generateImages({
                 model: 'imagen-4.0-generate-001',
                 prompt: prompt,
                 config: {
-                    numberOfImages: 1,
+                    numberOfImages: numImages,
                     aspectRatio: config.aspectRatio || '1:1',
                 },
             });
 
             if (response.generatedImages && response.generatedImages.length > 0) {
-                return response.generatedImages[0].image.imageBytes;
+                return response.generatedImages.map(img => img.image.imageBytes);
             }
             throw new Error("No image data found in Imagen API response.");
 
         } else { // 'gemini-2.5-flash-image'
-            const parts: Part[] = [];
+            const generationPromises: Promise<string>[] = [];
+            
+            for (let i = 0; i < numImages; i++) {
+                generationPromises.push((async () => {
+                    const parts: Part[] = [];
 
-            if (config.referenceImages && config.referenceImages.length > 0) {
-                for (const image of config.referenceImages) {
-                    parts.push({
-                        inlineData: { mimeType: image.mimeType, data: image.data }
+                    if (config.referenceImages && config.referenceImages.length > 0) {
+                        for (const image of config.referenceImages) {
+                            parts.push({
+                                inlineData: { mimeType: image.mimeType, data: image.data }
+                            });
+                        }
+                    }
+                    parts.push({ text: prompt });
+
+                    const response = await ai.models.generateContent({
+                        model: 'gemini-2.5-flash-image',
+                        contents: { parts },
+                        config: {
+                            responseModalities: [Modality.IMAGE],
+                        },
                     });
-                }
-            }
-            parts.push({ text: prompt });
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
-                contents: { parts },
-                config: {
-                    responseModalities: [Modality.IMAGE],
-                },
-            });
+                    const candidate = response.candidates?.[0];
 
-            const candidate = response.candidates?.[0];
+                    if (!candidate || !candidate.content || !candidate.content.parts) {
+                        const finishReason = candidate?.finishReason;
+                        let errorMessage = `Image generation failed.`;
+                        if (finishReason) {
+                            errorMessage += ` Reason: ${finishReason}.`;
+                        }
+                        errorMessage += ` Please check your prompt and reference image for any policy violations.`;
+                        console.error("Image generation failed or was blocked.", { response });
+                        throw new Error(errorMessage);
+                    }
 
-            if (!candidate || !candidate.content || !candidate.content.parts) {
-                const finishReason = candidate?.finishReason;
-                let errorMessage = `Image generation failed.`;
-                if (finishReason) {
-                    errorMessage += ` Reason: ${finishReason}.`;
-                }
-                errorMessage += ` Please check your prompt and reference image for any policy violations.`;
-                console.error("Image generation failed or was blocked.", { response });
-                throw new Error(errorMessage);
+                    for (const part of candidate.content.parts) {
+                        if (part.inlineData) {
+                            return part.inlineData.data;
+                        }
+                    }
+                    throw new Error("No image data found in Nano Banana API response.");
+                })());
             }
 
-            for (const part of candidate.content.parts) {
-                if (part.inlineData) {
-                    return part.inlineData.data;
-                }
-            }
-            throw new Error("No image data found in Nano Banana API response.");
+            return await Promise.all(generationPromises);
         }
     } catch (error) {
         console.error("Error generating image:", error);
