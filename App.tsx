@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { View, ImageModel, AspectRatio } from './types';
-import { generateImagesFromPrompt, ReferenceImage } from './services/geminiService';
+import { generateImagesFromPrompt, enhancePrompt, describeImage, refineImage, generateGroundedPrompt, ReferenceImage } from './services/geminiService';
 
 // To inform TypeScript about the global piexif object from the CDN script
 declare const piexif: any;
@@ -13,7 +13,8 @@ type PromptMode = 'text' | 'json';
 
 interface GenerationMetadata {
   model: ImageModel;
-  prompt: string; // The user-facing prompt string/JSON
+  prompt: string; // The final prompt used for generation
+  originalPrompt?: string; // The user's initial prompt if grounding was used
   aspectRatio?: AspectRatio;
 }
 
@@ -111,6 +112,7 @@ interface ImageGeneratorProps {
   isLoading: boolean;
   generatedImages: string[] | null;
   error: string | null;
+  setError: (error: string | null) => void;
   onGenerate: (prompt: string, model: ImageModel, aspectRatio: AspectRatio, numberOfImages: number) => void;
   prompt: string;
   onPromptChange: (newPrompt: string) => void;
@@ -124,28 +126,48 @@ interface ImageGeneratorProps {
   onReferenceImagesChange: (images: string[]) => void;
   numberOfImages: number;
   onNumberOfImagesChange: (num: number) => void;
+  selectedImageIndex: number;
+  onSelectedImageIndexChange: (index: number) => void;
+  isRefining: boolean;
+  refinementPrompt: string;
+  onRefinementPromptChange: (prompt: string) => void;
+  onRefine: () => void;
+  useWebSearch: boolean;
+  onUseWebSearchChange: (use: boolean) => void;
 }
 
 const ImageGenerator: React.FC<ImageGeneratorProps> = ({ 
-    isLoading, generatedImages, error, onGenerate, prompt, onPromptChange,
+    isLoading, generatedImages, error, setError, onGenerate, prompt, onPromptChange,
     promptMode, onPromptModeChange, model, onModelChange,
     aspectRatio, onAspectRatioChange, referenceImages, onReferenceImagesChange,
-    numberOfImages, onNumberOfImagesChange
+    numberOfImages, onNumberOfImagesChange, selectedImageIndex, onSelectedImageIndexChange,
+    isRefining, refinementPrompt, onRefinementPromptChange, onRefine, useWebSearch, onUseWebSearchChange
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isImagen = model === 'imagen-4.0-generate-001';
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  
-  useEffect(() => {
-    // Reset selected image when a new batch is generated or cleared
-    setSelectedImageIndex(0);
-  }, [generatedImages]);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [promptSuggestions, setPromptSuggestions] = useState<string[] | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onGenerate(prompt, model, aspectRatio, numberOfImages);
   };
   
+  const handleEnhancePrompt = async () => {
+    setIsEnhancing(true);
+    setError(null);
+    setPromptSuggestions(null);
+    try {
+        const currentPromptForEnhancing = promptMode === 'json' ? formatJsonDisplay(prompt) : prompt;
+        const suggestions = await enhancePrompt(currentPromptForEnhancing);
+        setPromptSuggestions(suggestions);
+    } catch (e: any) {
+        setError(e.message || "Failed to get suggestions.");
+    } finally {
+        setIsEnhancing(false);
+    }
+  };
+
   const displayPrompt = promptMode === 'json' ? formatJsonDisplay(prompt) : prompt;
 
   const handlePromptTextAreaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -247,6 +269,44 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
           className="w-full h-48 p-3 bg-slate-800/80 border border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm transition-colors duration-200"
         />
 
+        {promptMode === 'text' && (
+            <div className="pt-1">
+                <button 
+                    type="button" 
+                    onClick={handleEnhancePrompt} 
+                    disabled={isEnhancing || isLoading || !prompt.trim()}
+                    className="w-full flex justify-center items-center gap-2 bg-violet-700 hover:bg-violet-600 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
+                >
+                    {isEnhancing ? <><LoaderIcon /> Enhancing...</> : '✨ Enhance Prompt with AI'}
+                </button>
+            </div>
+        )}
+
+        {promptSuggestions && (
+            <div className="space-y-3 p-4 bg-slate-800/60 rounded-lg animate-fade-in">
+                <div className="flex justify-between items-center">
+                    <h4 className="font-semibold text-slate-200">AI Suggestions:</h4>
+                    <button type="button" onClick={() => setPromptSuggestions(null)} className="text-xs text-slate-400 hover:text-white" aria-label="Clear suggestions">&times; Close</button>
+                </div>
+                <ul className="space-y-2">
+                    {promptSuggestions.map((suggestion, index) => (
+                        <li key={index}>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onPromptChange(suggestion);
+                                    setPromptSuggestions(null);
+                                }}
+                                className="w-full text-left p-3 bg-slate-700/50 hover:bg-indigo-600/50 rounded-md text-sm text-slate-300 hover:text-white transition-colors duration-200"
+                            >
+                                {suggestion}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        )}
+
         {/* Number of Images */}
         <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Number of Images</label>
@@ -297,6 +357,28 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
         )}
         {isImagen && <p className="text-xs text-slate-500">Reference images are not supported by the Imagen model.</p>}
 
+        <div className="flex items-center justify-between bg-slate-800/50 p-3 rounded-lg my-4">
+            <div className="flex items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
+                <div>
+                    <label htmlFor="web-search-toggle" className="font-medium text-slate-200">
+                        Ground with Web Search
+                    </label>
+                    <p className="text-xs text-slate-400">For prompts about recent or specific topics.</p>
+                </div>
+            </div>
+            <button
+                type="button"
+                role="switch"
+                aria-checked={useWebSearch}
+                onClick={() => onUseWebSearchChange(!useWebSearch)}
+                id="web-search-toggle"
+                className={`${useWebSearch ? 'bg-indigo-600' : 'bg-slate-700'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900`}
+            >
+                <span className={`${useWebSearch ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
+            </button>
+        </div>
+
         <button type="submit" disabled={isLoading} className="w-full flex justify-center items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200">
           {isLoading ? <><LoaderIcon /> Generating...</> : 'Generate Image'}
         </button>
@@ -315,7 +397,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {generatedImages.map((imgSrc, index) => (
-                  <button key={index} onClick={() => setSelectedImageIndex(index)} className={`rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 ${selectedImageIndex === index ? 'ring-2 ring-indigo-500' : 'ring-1 ring-slate-700 hover:ring-indigo-600'}`}>
+                  <button key={index} onClick={() => onSelectedImageIndexChange(index)} className={`rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 ${selectedImageIndex === index ? 'ring-2 ring-indigo-500' : 'ring-1 ring-slate-700 hover:ring-indigo-600'}`}>
                       <img src={imgSrc} alt={`Generated ${index + 1}`} className="w-full h-full object-cover aspect-square" />
                   </button>
               ))}
@@ -329,6 +411,26 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                     Download Selected Image with Metadata
                 </a>
             </div>
+          )}
+
+          {selectedImageUrl && !isImagen && (
+              <div className="space-y-3 pt-4 border-t border-slate-800">
+                  <h3 className="text-lg font-semibold text-teal-400">Conversational Refinement</h3>
+                  <p className="text-sm text-slate-400">Describe a change to the selected image above.</p>
+                  <textarea
+                      value={refinementPrompt}
+                      onChange={(e) => onRefinementPromptChange(e.target.value)}
+                      placeholder="e.g., Make the jellyfish glow brighter, change the style to watercolor..."
+                      className="w-full h-24 p-3 bg-slate-800/80 border border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono text-sm transition-colors duration-200"
+                  />
+                  <button 
+                      onClick={onRefine} 
+                      disabled={isLoading || isRefining || !refinementPrompt.trim()} 
+                      className="w-full flex justify-center items-center gap-2 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200"
+                  >
+                      {isRefining ? <><LoaderIcon /> Refining...</> : 'Refine Image'}
+                  </button>
+              </div>
           )}
         </div>
       )}
@@ -347,11 +449,14 @@ interface PromptExtractorProps {
   isEditing: boolean;
   onToggleEdit: () => void;
   onUsePrompt: () => void;
+  isDescribing: boolean;
+  onDescribeImage: () => void;
 }
 
 const PromptExtractor: React.FC<PromptExtractorProps> = ({ 
     onFileSelect, extractedMetadata, onExtractedMetadataChange, imagePreview, 
-    extractionMessage, isPromptValid, isEditing, onToggleEdit, onUsePrompt
+    extractionMessage, isPromptValid, isEditing, onToggleEdit, onUsePrompt,
+    isDescribing, onDescribeImage
 }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -404,9 +509,28 @@ const PromptExtractor: React.FC<PromptExtractorProps> = ({
             )}
         </div>
       )}
+       {imagePreview && !extractedMetadata && (
+        <div className="pt-2">
+            <button
+                type="button"
+                onClick={onDescribeImage}
+                disabled={isDescribing}
+                className="w-full flex justify-center items-center gap-2 bg-teal-700 hover:bg-teal-600 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+            >
+                {isDescribing ? <><LoaderIcon /> Describing Image...</> : '🖼️ Describe Image with AI'}
+            </button>
+            <p className="text-xs text-slate-500 mt-2 text-center">No metadata found. Let AI generate a prompt from the image.</p>
+        </div>
+       )}
       {extractedMetadata && (
         <div className="space-y-4">
-            <h3 className="text-lg font-semibold">{isPromptValid ? 'Extracted Prompt:' : 'Extracted Text (Invalid JSON):'}</h3>
+            {extractedMetadata.originalPrompt && (
+                 <div className="p-3 bg-slate-800/50 rounded-lg">
+                    <h4 className="font-semibold text-sm text-slate-300 mb-1">Original Prompt</h4>
+                    <p className="text-xs font-mono text-slate-400">{extractedMetadata.originalPrompt}</p>
+                 </div>
+            )}
+            <h3 className="text-lg font-semibold">{extractedMetadata.originalPrompt ? 'Grounded Prompt:' : (isPromptValid ? 'Extracted Prompt:' : 'Extracted Text (Invalid JSON):')}</h3>
             {isEditing ? (
                  <textarea
                     value={displayPrompt}
@@ -464,6 +588,11 @@ const GenerationHistory: React.FC<GenerationHistoryProps> = ({ history, onSelect
                             </div>
                             <div className="flex-grow overflow-hidden">
                                 <p className="text-xs text-slate-400 font-mono whitespace-pre-wrap break-words line-clamp-3" title={item.metadata.prompt}>
+                                    {item.metadata.originalPrompt && (
+                                        <span className="block text-slate-500 text-[10px] italic" title={`Original: ${item.metadata.originalPrompt}`}>
+                                            Grounded from: "{item.metadata.originalPrompt}"
+                                        </span>
+                                    )}
                                     {formatJsonDisplay(item.metadata.prompt)}
                                 </p>
                                 <div className="mt-3 flex items-center gap-3">
@@ -482,51 +611,6 @@ const GenerationHistory: React.FC<GenerationHistoryProps> = ({ history, onSelect
         </div>
     );
 };
-
-const FutureFeatures: React.FC = () => {
-    const features = [
-        {
-            icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.934L13 17.256A1 1 0 0112 18a1 1 0 01-.967-.744L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.934L11 2.744A1 1 0 0112 2z" clipRule="evenodd" /></svg>,
-            title: "AI-Powered Prompt Enhancement",
-            description: "Turn simple ideas into rich, detailed prompts. Let the AI suggest creative variations for you to explore."
-        },
-        {
-            icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" /></svg>,
-            title: "Describe Image (Reverse Prompting)",
-            description: "Upload any image and have the AI generate a descriptive prompt for it, perfect for recreating a style or subject."
-        },
-        {
-            icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" /></svg>,
-            title: "Conversational Image Refinement",
-            description: "Iteratively edit your creations. After generating an image, use chat commands like 'make it night' or 'add a hat'."
-        },
-        {
-            icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>,
-            title: "Grounded Generation with Web Search",
-            description: "Create images based on real-world, up-to-date information by allowing the model to use Google Search for details."
-        }
-    ];
-
-    return (
-        <div className="mt-12 pt-8 border-t border-slate-800">
-            <h2 className="text-xl font-semibold text-indigo-400 mb-6 text-center">Future AI Feature Ideas</h2>
-            <div className="space-y-4">
-                {features.map(feature => (
-                     <div key={feature.title} className="bg-slate-800/50 p-4 rounded-xl flex items-start gap-4 transition-all hover:bg-slate-800 hover:ring-1 hover:ring-indigo-700/50">
-                        <div className="flex-shrink-0 bg-slate-700/80 rounded-full h-10 w-10 flex items-center justify-center text-indigo-400">
-                            {feature.icon}
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-slate-200">{feature.title}</h3>
-                            <p className="text-sm text-slate-400 mt-1">{feature.description}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
 
 // --- Main App Component ---
 
@@ -548,6 +632,17 @@ const App: React.FC = () => {
   const [extractionMessage, setExtractionMessage] = useState<string | null>(null);
   const [isPromptValid, setIsPromptValid] = useState<boolean>(false);
   const [isEditingPrompt, setIsEditingPrompt] = useState<boolean>(false);
+  const [isDescribing, setIsDescribing] = useState<boolean>(false);
+
+  // State for refinement
+  const [isRefining, setIsRefining] = useState<boolean>(false);
+  const [refinementPrompt, setRefinementPrompt] = useState<string>('');
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+  
+  // State for Grounded Generation
+  const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
+
 
   // Effect to manage state consistency when switching models
   useEffect(() => {
@@ -557,66 +652,139 @@ const App: React.FC = () => {
     }
   }, [model]);
 
+  // Effect to reset selected image when a new batch is generated or cleared
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [generatedImages]);
+
   const handleGenerate = useCallback(async (currentPrompt: string, currentModel: ImageModel, currentAspectRatio: AspectRatio, numImages: number) => {
     setIsLoading(true);
     setError(null);
     setGeneratedImages(null);
+    setRefinementPrompt('');
 
-    let promptForApi: string;
-    let metadataToEmbed: GenerationMetadata;
-    const isImagen = currentModel === 'imagen-4.0-generate-001';
-
-    if (isImagen || promptMode === 'text') {
-        promptForApi = currentPrompt;
-        metadataToEmbed = { model: currentModel, prompt: currentPrompt, aspectRatio: isImagen ? currentAspectRatio : undefined };
-    } else { // JSON mode for Nano Banana
-        try {
-            const parsed = JSON.parse(currentPrompt);
-            const prettyPrompt = JSON.stringify(parsed, null, 2);
-            promptForApi = prettyPrompt;
-            metadataToEmbed = { model: currentModel, prompt: prettyPrompt };
-        } catch (e) {
-            setError("The provided JSON is invalid. Please correct it.");
-            setIsLoading(false);
-            return;
-        }
-    }
-    
     try {
-      const imagePartsForApi: ReferenceImage[] = referenceImages.map(dataUrl => {
-        const [meta, data] = dataUrl.split(',');
-        const mimeType = meta.match(/:(.*?);/)?.[1] || 'image/jpeg';
-        return { mimeType, data };
-      });
+        let finalPromptForApi: string = currentPrompt;
+        let metadataPrompt: string = currentPrompt;
+        let originalPromptForMetadata: string | undefined = undefined;
 
-      const base64Images = await generateImagesFromPrompt(promptForApi, currentModel, {
-          aspectRatio: currentAspectRatio,
-          referenceImages: imagePartsForApi,
-          numberOfImages: numImages,
-      });
+        // Step 1: Grounding with Web Search (if enabled)
+        if (useWebSearch) {
+            setError("Grounding prompt with web search..."); // Use error state as a status indicator
+            const groundedPrompt = await generateGroundedPrompt(currentPrompt);
+            finalPromptForApi = groundedPrompt;
+            metadataPrompt = groundedPrompt;
+            originalPromptForMetadata = currentPrompt;
+            setError(null);
+        }
 
-      const imagesWithMetadata = await Promise.all(
-          base64Images.map(base64Image => embedMetadataInImage(base64Image, 'image/png', metadataToEmbed))
-      );
-      
-      setGeneratedImages(imagesWithMetadata);
+        // Step 2: Prepare prompt for Nano Banana JSON mode (if not using web search)
+        const isImagen = currentModel === 'imagen-4.0-generate-001';
+        if (!isImagen && !useWebSearch && promptMode === 'json') {
+            try {
+                const parsed = JSON.parse(currentPrompt);
+                metadataPrompt = JSON.stringify(parsed, null, 2);
+                // The API itself uses the raw JSON string
+                finalPromptForApi = currentPrompt;
+            } catch (e) {
+                setError("The provided JSON is invalid. Please correct it.");
+                setIsLoading(false);
+                return;
+            }
+        }
+        
+        const metadataToEmbed: GenerationMetadata = {
+            model: currentModel,
+            prompt: metadataPrompt,
+            originalPrompt: originalPromptForMetadata,
+            aspectRatio: isImagen ? currentAspectRatio : undefined
+        };
+        
+        // Step 3: Call image generation service
+        const imagePartsForApi: ReferenceImage[] = referenceImages.map(dataUrl => {
+            const [meta, data] = dataUrl.split(',');
+            const mimeType = meta.match(/:(.*?);/)?.[1] || 'image/jpeg';
+            return { mimeType, data };
+        });
 
-      const newHistoryItem: HistoryItem = {
-          id: `hist-${Date.now()}`,
-          images: imagesWithMetadata,
-          timestamp: Date.now(),
-          metadata: metadataToEmbed
-      };
-      setGenerationHistory(prev => [newHistoryItem, ...prev]);
-      setReferenceImages([]);
+        const base64Images = await generateImagesFromPrompt(finalPromptForApi, currentModel, {
+            aspectRatio: currentAspectRatio,
+            referenceImages: imagePartsForApi,
+            numberOfImages: numImages,
+        });
+
+        // Step 4: Embed metadata and update state
+        const imagesWithMetadata = await Promise.all(
+            base64Images.map(base64Image => embedMetadataInImage(base64Image, 'image/png', metadataToEmbed))
+        );
+        
+        const newHistoryItem: HistoryItem = {
+            id: `hist-${Date.now()}`,
+            images: imagesWithMetadata,
+            timestamp: Date.now(),
+            metadata: metadataToEmbed
+        };
+        setGeneratedImages(imagesWithMetadata);
+        setGenerationHistory(prev => [newHistoryItem, ...prev]);
+        setActiveHistoryId(newHistoryItem.id);
+        setReferenceImages([]);
+        setUseWebSearch(false); // Reset toggle after generation
 
     } catch (e: any) {
-      setError(e.message || "An unknown error occurred.");
+        setError(e.message || "An unknown error occurred.");
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
-  }, [promptMode, referenceImages]);
+}, [promptMode, referenceImages, useWebSearch]);
   
+  const handleRefine = useCallback(async () => {
+    if (!generatedImages || !activeHistoryId || refinementPrompt.trim() === '') return;
+
+    const activeHistoryItem = generationHistory.find(h => h.id === activeHistoryId);
+    if (!activeHistoryItem) {
+        setError("Could not find the active session to refine. Please generate a new image.");
+        return;
+    }
+    
+    setIsRefining(true);
+    setError(null);
+
+    try {
+        const sourceImageDataUrl = generatedImages[selectedImageIndex];
+        const [meta, data] = sourceImageDataUrl.split(',');
+        const mimeType = meta.match(/:(.*?);/)?.[1] || 'image/jpeg';
+        const referenceImage: ReferenceImage = { mimeType, data };
+
+        const refinedBase64 = await refineImage(refinementPrompt, referenceImage);
+
+        const newPromptForMetadata = `${activeHistoryItem.metadata.prompt}\n\n---\n\nRefinement: ${refinementPrompt}`;
+        const newMetadata: GenerationMetadata = {
+            ...activeHistoryItem.metadata,
+            prompt: newPromptForMetadata,
+        };
+
+        const refinedImageWithMetadata = await embedMetadataInImage(refinedBase64, 'image/png', newMetadata);
+
+        const newGeneratedImages = [...generatedImages];
+        newGeneratedImages[selectedImageIndex] = refinedImageWithMetadata;
+
+        const newHistory = generationHistory.map(item => 
+            item.id === activeHistoryId 
+                ? { ...item, images: newGeneratedImages, metadata: newMetadata } 
+                : item
+        );
+
+        setGeneratedImages(newGeneratedImages);
+        setGenerationHistory(newHistory);
+        setRefinementPrompt('');
+
+    } catch (e: any) {
+        setError(e.message || "An unknown error occurred during refinement.");
+    } finally {
+        setIsRefining(false);
+    }
+  }, [generatedImages, activeHistoryId, refinementPrompt, selectedImageIndex, generationHistory]);
+
   const handleSelectHistoryItem = useCallback((item: HistoryItem) => {
     const { metadata } = item;
     setModel(metadata.model);
@@ -636,9 +804,11 @@ const App: React.FC = () => {
     }
 
     setGeneratedImages(item.images);
+    setActiveHistoryId(item.id);
     setNumberOfImages(item.images.length);
     setReferenceImages([]);
     setError(null);
+    setRefinementPrompt('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
@@ -717,6 +887,41 @@ const App: React.FC = () => {
     reader.onerror = () => { setExtractionMessage("Error reading file."); }
     reader.readAsDataURL(file);
   }, []);
+  
+  const handleDescribeImage = useCallback(async () => {
+    if (!imagePreview) {
+        setExtractionMessage("No image available to describe.");
+        return;
+    }
+    
+    setIsDescribing(true);
+    setExtractionMessage("Generating description with AI...");
+    setError(null);
+
+    try {
+        const [meta, data] = imagePreview.split(',');
+        const mimeType = meta.match(/:(.*?);/)?.[1] || 'image/jpeg';
+        const referenceImage: ReferenceImage = { mimeType, data };
+        
+        const description = await describeImage(referenceImage);
+
+        const newMetadata: GenerationMetadata = {
+            model: 'gemini-2.5-flash-image', // Default to a good general model
+            prompt: description,
+        };
+        
+        setExtractedMetadata(newMetadata);
+        setIsPromptValid(true);
+        setExtractionMessage("AI-generated description created! You can now edit it or use it to generate a new image.");
+        setIsEditingPrompt(true);
+
+    } catch (e: any) {
+        setExtractionMessage(e.message || "Failed to generate description.");
+        setIsPromptValid(false);
+    } finally {
+        setIsDescribing(false);
+    }
+  }, [imagePreview]);
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-6 lg:p-8">
@@ -744,13 +949,16 @@ const App: React.FC = () => {
             {view === 'generate' ? (
                 <>
                     <ImageGenerator 
-                        isLoading={isLoading} generatedImages={generatedImages} error={error} onGenerate={handleGenerate}
+                        isLoading={isLoading} generatedImages={generatedImages} error={error} setError={setError} onGenerate={handleGenerate}
                         prompt={prompt} onPromptChange={setPrompt}
                         promptMode={promptMode} onPromptModeChange={setPromptMode}
                         model={model} onModelChange={setModel}
                         aspectRatio={aspectRatio} onAspectRatioChange={setAspectRatio}
                         referenceImages={referenceImages} onReferenceImagesChange={setReferenceImages}
                         numberOfImages={numberOfImages} onNumberOfImagesChange={setNumberOfImages}
+                        selectedImageIndex={selectedImageIndex} onSelectedImageIndexChange={setSelectedImageIndex}
+                        isRefining={isRefining} refinementPrompt={refinementPrompt} onRefinementPromptChange={setRefinementPrompt} onRefine={handleRefine}
+                        useWebSearch={useWebSearch} onUseWebSearchChange={setUseWebSearch}
                     />
                     <GenerationHistory history={generationHistory} onSelectItem={handleSelectHistoryItem} />
                 </>
@@ -761,12 +969,13 @@ const App: React.FC = () => {
                     imagePreview={imagePreview} extractionMessage={extractionMessage}
                     isPromptValid={isPromptValid} isEditing={isEditingPrompt}
                     onToggleEdit={handleToggleEditPrompt} onUsePrompt={handleUseExtractedPrompt}
+                    isDescribing={isDescribing} onDescribeImage={handleDescribeImage}
                 />
             )}
            </div>
         </main>
-        <footer className="w-full max-w-2xl mx-auto mt-8">
-             <FutureFeatures />
+        <footer className="w-full max-w-2xl mx-auto mt-8 text-center text-slate-500 text-sm">
+             <p>&copy; 2024 AI Image Tools. All features implemented.</p>
         </footer>
       </div>
     </div>
