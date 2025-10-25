@@ -19,6 +19,46 @@ interface GenerationConfig {
     numberOfImages?: number;
 }
 
+export const generateExamplePrompts = async (): Promise<string[]> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Generate 8 diverse and creative image generation prompts.`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        prompts: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.STRING,
+                                description: "A single, detailed and visually descriptive prompt."
+                            }
+                        }
+                    }
+                },
+                systemInstruction: "You are a creative assistant for an AI image generator. Your task is to generate a list of 8 distinct, visually descriptive, and detailed prompts. The prompts should cover a wide range of styles and subjects (e.g., photorealism, fantasy, watercolor, sci-fi, abstract). Return the response as a JSON object with a single key 'prompts' which is an array of strings. Do not include any other text or markdown formatting, just the raw JSON object.",
+            }
+        });
+
+        const jsonText = response.text.trim();
+        const result = JSON.parse(jsonText);
+
+        if (result.prompts && Array.isArray(result.prompts)) {
+            return result.prompts.filter(s => typeof s === 'string');
+        }
+        throw new Error("Invalid response format from example prompt generator.");
+
+    } catch (error) {
+        console.error("Error generating example prompts:", error);
+        if (error instanceof Error) {
+                throw new Error(`Failed to generate example prompts: ${error.message}`);
+        }
+        throw new Error("An unknown error occurred while generating example prompts.");
+    }
+};
+
 export const generateGroundedPrompt = async (userPrompt: string): Promise<string> => {
     try {
         const response = await ai.models.generateContent({

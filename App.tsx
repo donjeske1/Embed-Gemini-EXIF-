@@ -1,6 +1,7 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { View, ImageModel, AspectRatio } from './types';
-import { generateImagesFromPrompt, enhancePrompt, describeImage, refineImage, generateGroundedPrompt, ReferenceImage } from './services/geminiService';
+import { generateImagesFromPrompt, enhancePrompt, describeImage, refineImage, generateGroundedPrompt, ReferenceImage, generateExamplePrompts } from './services/geminiService';
 
 // To inform TypeScript about the global piexif object from the CDN script
 declare const piexif: any;
@@ -8,17 +9,6 @@ declare const piexif: any;
 // Using ImageDescription (270) which is more reliable for string data than UserComment (37510).
 const EXIF_PROMPT_TAG = 270; // Corresponds to piexif.ImageIFD.ImageDescription
 const DEFAULT_PROMPT_TEXT = "A majestic bioluminescent jellyfish floating in a dark, deep ocean, surrounded by sparkling plankton.";
-
-const examplePrompts = [
-    "A photorealistic image of an astronaut riding a majestic Friesian horse on Mars, red dust swirling, with a blue Earth hanging in the dark, star-filled sky.",
-    "Whimsical watercolor painting of a sprawling city built from giant, ancient books. Tiny people read on the rooftops under a soft, pastel sunset.",
-    "Extreme close-up macro photograph of a single dewdrop on a vibrant green blade of grass, reflecting a miniature, intricate forest scene within.",
-    "A sleek, minimalist vector logo for a high-tech coffee shop named 'The Cosmic Bean', featuring a stylized Saturn with its rings forming a coffee cup handle.",
-    "Epic fantasy landscape painting of a colossal, moss-covered dragon sleeping, coiled around a snow-capped mountain peak. Cinematic, volumetric lighting pierces through stormy clouds.",
-    "A cozy, cluttered artist's studio in a charming Parisian apartment. Sunbeams stream through a large window, illuminating dust motes and a half-finished oil painting. Impressionistic style.",
-    "High-contrast, noir-style black and white photograph of a lone detective in a trench coat, silhouetted under a flickering streetlamp on a rain-slicked, cobblestone alley.",
-    "Vibrant, bustling futuristic street in a cyberpunk Tokyo at night. Towering holographic ads, flying vehicles, and diverse cyborgs fill the scene with neon light."
-];
 
 type PromptMode = 'text' | 'json';
 
@@ -146,6 +136,9 @@ interface ImageGeneratorProps {
   onRefine: () => void;
   useWebSearch: boolean;
   onUseWebSearchChange: (use: boolean) => void;
+  examplePrompts: string[];
+  isFetchingExamples: boolean;
+  onRefreshExamples: () => void;
 }
 
 const ImageGenerator: React.FC<ImageGeneratorProps> = ({ 
@@ -153,7 +146,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
     promptMode, onPromptModeChange, model, onModelChange,
     aspectRatio, onAspectRatioChange, referenceImages, onReferenceImagesChange,
     numberOfImages, onNumberOfImagesChange, selectedImageIndex, onSelectedImageIndexChange,
-    isRefining, refinementPrompt, onRefinementPromptChange, onRefine, useWebSearch, onUseWebSearchChange
+    isRefining, refinementPrompt, onRefinementPromptChange, onRefine, useWebSearch, onUseWebSearchChange,
+    examplePrompts, isFetchingExamples, onRefreshExamples
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isImagen = model === 'imagen-4.0-generate-001';
@@ -342,21 +336,40 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                     <h4 className="font-semibold text-slate-200">Example Prompts:</h4>
                     <button type="button" onClick={() => setShowExamples(false)} className="text-xs text-slate-400 hover:text-white" aria-label="Close examples">&times; Close</button>
                 </div>
-                <ul className="space-y-2">
-                    {examplePrompts.map((suggestion, index) => (
-                        <li key={index}>
+                {isFetchingExamples ? (
+                    <div className="flex justify-center items-center h-32">
+                        <LoaderIcon />
+                        <span className="ml-2 text-slate-400">Fetching new ideas...</span>
+                    </div>
+                ) : (
+                    <>
+                        <ul className="space-y-2">
+                            {examplePrompts.map((suggestion, index) => (
+                                <li key={index}>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            onPromptChange(suggestion);
+                                        }}
+                                        className="w-full text-left p-3 bg-slate-700/50 hover:bg-indigo-600/50 rounded-md text-sm text-slate-300 hover:text-white transition-colors duration-200"
+                                    >
+                                        {suggestion}
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                        <div className="pt-2">
                             <button
                                 type="button"
-                                onClick={() => {
-                                    onPromptChange(suggestion);
-                                }}
-                                className="w-full text-left p-3 bg-slate-700/50 hover:bg-indigo-600/50 rounded-md text-sm text-slate-300 hover:text-white transition-colors duration-200"
+                                onClick={onRefreshExamples}
+                                disabled={isFetchingExamples || isLoading}
+                                className="w-full flex justify-center items-center gap-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
                             >
-                                {suggestion}
+                                {isFetchingExamples ? <><LoaderIcon /> Loading...</> : '🔄 Get New Ideas'}
                             </button>
-                        </li>
-                    ))}
-                </ul>
+                        </div>
+                    </>
+                )}
             </div>
         )}
 
@@ -696,6 +709,35 @@ const App: React.FC = () => {
   
   // State for Grounded Generation
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
+
+  // State for dynamic examples
+  const [examplePrompts, setExamplePrompts] = useState<string[]>([]);
+  const [isFetchingExamples, setIsFetchingExamples] = useState<boolean>(true);
+
+
+  const fetchExamplePrompts = useCallback(async () => {
+      setIsFetchingExamples(true);
+      try {
+          const prompts = await generateExamplePrompts();
+          setExamplePrompts(prompts);
+      } catch (e: any) {
+          console.error("Failed to fetch example prompts:", e.message);
+          // Fallback to a default set if API fails, so the user is not left with nothing.
+          setExamplePrompts([
+              "A photorealistic image of an astronaut riding a majestic Friesian horse on Mars, red dust swirling, with a blue Earth hanging in the dark, star-filled sky.",
+              "Whimsical watercolor painting of a sprawling city built from giant, ancient books. Tiny people read on the rooftops under a soft, pastel sunset.",
+              "Epic fantasy landscape painting of a colossal, moss-covered dragon sleeping, coiled around a snow-capped mountain peak. Cinematic, volumetric lighting pierces through stormy clouds.",
+              "Vibrant, bustling futuristic street in a cyberpunk Tokyo at night. Towering holographic ads, flying vehicles, and diverse cyborgs fill the scene with neon light."
+          ]);
+          setError("Could not fetch new example prompts. Displaying defaults.");
+      } finally {
+          setIsFetchingExamples(false);
+      }
+  }, []);
+
+  useEffect(() => {
+      fetchExamplePrompts();
+  }, [fetchExamplePrompts]);
 
 
   // Effect to manage state consistency when switching models
@@ -1090,6 +1132,7 @@ const App: React.FC = () => {
                         selectedImageIndex={selectedImageIndex} onSelectedImageIndexChange={setSelectedImageIndex}
                         isRefining={isRefining} refinementPrompt={refinementPrompt} onRefinementPromptChange={setRefinementPrompt} onRefine={handleRefine}
                         useWebSearch={useWebSearch} onUseWebSearchChange={setUseWebSearch}
+                        examplePrompts={examplePrompts} isFetchingExamples={isFetchingExamples} onRefreshExamples={fetchExamplePrompts}
                     />
                     <GenerationHistory history={generationHistory} onSelectItem={handleSelectHistoryItem} />
                 </>
