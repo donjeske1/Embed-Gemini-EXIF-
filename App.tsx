@@ -9,6 +9,17 @@ declare const piexif: any;
 const EXIF_PROMPT_TAG = 270; // Corresponds to piexif.ImageIFD.ImageDescription
 const DEFAULT_PROMPT_TEXT = "A majestic bioluminescent jellyfish floating in a dark, deep ocean, surrounded by sparkling plankton.";
 
+const examplePrompts = [
+    "A photorealistic image of an astronaut riding a majestic Friesian horse on Mars, red dust swirling, with a blue Earth hanging in the dark, star-filled sky.",
+    "Whimsical watercolor painting of a sprawling city built from giant, ancient books. Tiny people read on the rooftops under a soft, pastel sunset.",
+    "Extreme close-up macro photograph of a single dewdrop on a vibrant green blade of grass, reflecting a miniature, intricate forest scene within.",
+    "A sleek, minimalist vector logo for a high-tech coffee shop named 'The Cosmic Bean', featuring a stylized Saturn with its rings forming a coffee cup handle.",
+    "Epic fantasy landscape painting of a colossal, moss-covered dragon sleeping, coiled around a snow-capped mountain peak. Cinematic, volumetric lighting pierces through stormy clouds.",
+    "A cozy, cluttered artist's studio in a charming Parisian apartment. Sunbeams stream through a large window, illuminating dust motes and a half-finished oil painting. Impressionistic style.",
+    "High-contrast, noir-style black and white photograph of a lone detective in a trench coat, silhouetted under a flickering streetlamp on a rain-slicked, cobblestone alley.",
+    "Vibrant, bustling futuristic street in a cyberpunk Tokyo at night. Towering holographic ads, flying vehicles, and diverse cyborgs fill the scene with neon light."
+];
+
 type PromptMode = 'text' | 'json';
 
 interface GenerationMetadata {
@@ -114,6 +125,7 @@ interface ImageGeneratorProps {
   error: string | null;
   setError: (error: string | null) => void;
   onGenerate: (prompt: string, model: ImageModel, aspectRatio: AspectRatio, numberOfImages: number) => void;
+  onGenerateAllSuggestions: (prompts: string[]) => void;
   prompt: string;
   onPromptChange: (newPrompt: string) => void;
   promptMode: PromptMode;
@@ -137,7 +149,7 @@ interface ImageGeneratorProps {
 }
 
 const ImageGenerator: React.FC<ImageGeneratorProps> = ({ 
-    isLoading, generatedImages, error, setError, onGenerate, prompt, onPromptChange,
+    isLoading, generatedImages, error, setError, onGenerate, onGenerateAllSuggestions, prompt, onPromptChange,
     promptMode, onPromptModeChange, model, onModelChange,
     aspectRatio, onAspectRatioChange, referenceImages, onReferenceImagesChange,
     numberOfImages, onNumberOfImagesChange, selectedImageIndex, onSelectedImageIndexChange,
@@ -147,6 +159,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   const isImagen = model === 'imagen-4.0-generate-001';
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [promptSuggestions, setPromptSuggestions] = useState<string[] | null>(null);
+  const [showExamples, setShowExamples] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,14 +283,21 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
         />
 
         {promptMode === 'text' && (
-            <div className="pt-1">
+             <div className="pt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button 
                     type="button" 
                     onClick={handleEnhancePrompt} 
                     disabled={isEnhancing || isLoading || !prompt.trim()}
                     className="w-full flex justify-center items-center gap-2 bg-violet-700 hover:bg-violet-600 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
                 >
-                    {isEnhancing ? <><LoaderIcon /> Enhancing...</> : '✨ Enhance Prompt with AI'}
+                    {isEnhancing ? <><LoaderIcon /> Enhancing...</> : '✨ Enhance Prompt'}
+                </button>
+                <button 
+                    type="button" 
+                    onClick={() => setShowExamples(!showExamples)} 
+                    className="w-full flex justify-center items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
+                >
+                    💡 {showExamples ? 'Hide Examples' : 'Show Examples'}
                 </button>
             </div>
         )}
@@ -295,7 +315,40 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                                 type="button"
                                 onClick={() => {
                                     onPromptChange(suggestion);
-                                    setPromptSuggestions(null);
+                                }}
+                                className="w-full text-left p-3 bg-slate-700/50 hover:bg-indigo-600/50 rounded-md text-sm text-slate-300 hover:text-white transition-colors duration-200"
+                            >
+                                {suggestion}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+                <div className="pt-2">
+                    <button
+                        type="button"
+                        onClick={() => onGenerateAllSuggestions(promptSuggestions)}
+                        disabled={isLoading || isEnhancing}
+                        className="w-full flex justify-center items-center gap-2 bg-green-700 hover:bg-green-600 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
+                    >
+                        ⚡ Generate All ({promptSuggestions.length} Images)
+                    </button>
+                </div>
+            </div>
+        )}
+
+        {showExamples && (
+            <div className="space-y-3 p-4 bg-slate-800/60 rounded-lg animate-fade-in">
+                <div className="flex justify-between items-center">
+                    <h4 className="font-semibold text-slate-200">Example Prompts:</h4>
+                    <button type="button" onClick={() => setShowExamples(false)} className="text-xs text-slate-400 hover:text-white" aria-label="Close examples">&times; Close</button>
+                </div>
+                <ul className="space-y-2">
+                    {examplePrompts.map((suggestion, index) => (
+                        <li key={index}>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onPromptChange(suggestion);
                                 }}
                                 className="w-full text-left p-3 bg-slate-700/50 hover:bg-indigo-600/50 rounded-md text-sm text-slate-300 hover:text-white transition-colors duration-200"
                             >
@@ -639,6 +692,7 @@ const App: React.FC = () => {
   const [refinementPrompt, setRefinementPrompt] = useState<string>('');
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+  const [activeBatchHistoryIds, setActiveBatchHistoryIds] = useState<string[] | null>(null);
   
   // State for Grounded Generation
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
@@ -662,6 +716,7 @@ const App: React.FC = () => {
     setError(null);
     setGeneratedImages(null);
     setRefinementPrompt('');
+    setActiveBatchHistoryIds(null); // Reset batch state
 
     try {
         let finalPromptForApi: string = currentPrompt;
@@ -735,14 +790,88 @@ const App: React.FC = () => {
     } finally {
         setIsLoading(false);
     }
-}, [promptMode, referenceImages, useWebSearch]);
+  }, [promptMode, referenceImages, useWebSearch]);
+
+  const handleGenerateAllSuggestions = useCallback(async (suggestions: string[]) => {
+    if (!suggestions || suggestions.length === 0) return;
+
+    setIsLoading(true);
+    setError(null);
+    setGeneratedImages(null);
+    setRefinementPrompt('');
+    setActiveHistoryId(null);
+    setActiveBatchHistoryIds(null);
+
+    try {
+        const generationPromises = suggestions.map(async (suggestionPrompt) => {
+            const isImagen = model === 'imagen-4.0-generate-001';
+            const metadataToEmbed: GenerationMetadata = {
+                model: model,
+                prompt: suggestionPrompt,
+                aspectRatio: isImagen ? aspectRatio : undefined,
+            };
+
+            const base64Images = await generateImagesFromPrompt(suggestionPrompt, model, {
+                aspectRatio: aspectRatio,
+                numberOfImages: 1, // One image per suggestion
+            });
+
+            if (!base64Images || base64Images.length === 0) {
+                console.error(`Generation failed for prompt: "${suggestionPrompt}"`);
+                return null;
+            }
+
+            const imageWithMetadata = await embedMetadataInImage(base64Images[0], 'image/png', metadataToEmbed);
+            
+            const newHistoryItem: HistoryItem = {
+                id: `hist-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+                images: [imageWithMetadata],
+                timestamp: Date.now(),
+                metadata: metadataToEmbed,
+            };
+
+            return newHistoryItem;
+        });
+
+        const results = await Promise.all(generationPromises);
+        const newHistoryItems = results.filter((item): item is HistoryItem => item !== null);
+
+        if (newHistoryItems.length > 0) {
+            const allGeneratedImages = newHistoryItems.flatMap(item => item.images);
+            const newHistoryIds = newHistoryItems.map(item => item.id);
+
+            setGeneratedImages(allGeneratedImages);
+            setGenerationHistory(prev => [...newHistoryItems, ...prev]);
+            setActiveBatchHistoryIds(newHistoryIds);
+        } else {
+            throw new Error("All image generations in the batch failed. Please try again.");
+        }
+        
+        setReferenceImages([]);
+        setUseWebSearch(false);
+
+    } catch (e: any) {
+        setError(e.message || "An unknown error occurred during batch generation.");
+    } finally {
+        setIsLoading(false);
+    }
+}, [model, aspectRatio]);
   
   const handleRefine = useCallback(async () => {
-    if (!generatedImages || !activeHistoryId || refinementPrompt.trim() === '') return;
+    if (!generatedImages || refinementPrompt.trim() === '') return;
 
-    const activeHistoryItem = generationHistory.find(h => h.id === activeHistoryId);
-    if (!activeHistoryItem) {
+    const historyIdToUse = activeBatchHistoryIds
+        ? activeBatchHistoryIds[selectedImageIndex]
+        : activeHistoryId;
+
+    if (!historyIdToUse) {
         setError("Could not find the active session to refine. Please generate a new image.");
+        return;
+    }
+    
+    const activeHistoryItem = generationHistory.find(h => h.id === historyIdToUse);
+    if (!activeHistoryItem) {
+        setError("Could not find the active history item to refine. Please generate a new image.");
         return;
     }
     
@@ -769,8 +898,8 @@ const App: React.FC = () => {
         newGeneratedImages[selectedImageIndex] = refinedImageWithMetadata;
 
         const newHistory = generationHistory.map(item => 
-            item.id === activeHistoryId 
-                ? { ...item, images: newGeneratedImages, metadata: newMetadata } 
+            item.id === historyIdToUse
+                ? { ...item, images: [refinedImageWithMetadata], metadata: newMetadata } 
                 : item
         );
 
@@ -783,7 +912,7 @@ const App: React.FC = () => {
     } finally {
         setIsRefining(false);
     }
-  }, [generatedImages, activeHistoryId, refinementPrompt, selectedImageIndex, generationHistory]);
+  }, [generatedImages, activeHistoryId, activeBatchHistoryIds, refinementPrompt, selectedImageIndex, generationHistory]);
 
   const handleSelectHistoryItem = useCallback((item: HistoryItem) => {
     const { metadata } = item;
@@ -805,6 +934,7 @@ const App: React.FC = () => {
 
     setGeneratedImages(item.images);
     setActiveHistoryId(item.id);
+    setActiveBatchHistoryIds(null);
     setNumberOfImages(item.images.length);
     setReferenceImages([]);
     setError(null);
@@ -950,6 +1080,7 @@ const App: React.FC = () => {
                 <>
                     <ImageGenerator 
                         isLoading={isLoading} generatedImages={generatedImages} error={error} setError={setError} onGenerate={handleGenerate}
+                        onGenerateAllSuggestions={handleGenerateAllSuggestions}
                         prompt={prompt} onPromptChange={setPrompt}
                         promptMode={promptMode} onPromptModeChange={setPromptMode}
                         model={model} onModelChange={setModel}
