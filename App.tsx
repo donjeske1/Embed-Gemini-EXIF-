@@ -154,6 +154,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [promptSuggestions, setPromptSuggestions] = useState<string[] | null>(null);
   const [showExamples, setShowExamples] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,10 +188,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
       }
   };
 
-  const handleAddImages = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-
+  const processFiles = useCallback((files: FileList) => {
     const newImagePromises: Promise<string>[] = [];
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -205,15 +204,39 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
 
     Promise.all(newImagePromises).then(imageDataUrls => {
         onReferenceImagesChange([...referenceImages, ...imageDataUrls]);
-        // If user adds reference image while in JSON mode, switch to text mode to guide them
-        // towards writing an instructional prompt for editing.
         if (!isImagen && promptMode === 'json') {
             onPromptModeChange('text');
-            onPromptChange(''); // Clear prompt to encourage a new instruction
+            onPromptChange('');
         }
     }).catch(console.error);
+  }, [referenceImages, isImagen, promptMode, onReferenceImagesChange, onPromptModeChange, onPromptChange]);
+
+  const handleAddImages = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+        processFiles(files);
+    }
   };
   
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setIsDraggingOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setIsDraggingOver(false);
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+          processFiles(files);
+      }
+  }, [processFiles]);
+
   const handleRemoveImage = (indexToRemove: number) => {
       onReferenceImagesChange(referenceImages.filter((_, index) => index !== indexToRemove));
   };
@@ -403,22 +426,34 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
         {/* Reference Images Section */}
         {!isImagen && (
           <div className="space-y-2">
-              <label className="block text-sm font-medium text-slate-300">Reference Images (Optional)</label>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                  {referenceImages.map((imgSrc, index) => (
-                      <div key={index} className="relative group">
-                          <img src={imgSrc} alt={`Reference ${index + 1}`} className="w-full h-24 object-cover rounded-lg" />
-                          <button type="button" onClick={() => handleRemoveImage(index)} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 leading-none opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Remove image">
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                          </button>
-                      </div>
-                  ))}
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full h-24 flex items-center justify-center border-2 border-dashed border-slate-700 rounded-lg hover:border-indigo-500 text-slate-400 hover:text-indigo-400 transition-colors duration-200">
-                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                     <span className="sr-only">Add image</span>
-                  </button>
-              </div>
-               <input ref={fileInputRef} type="file" multiple accept="image/jpeg,image/png" onChange={handleAddImages} className="hidden" />
+            <label className="block text-sm font-medium text-slate-300">Reference Images (Optional)</label>
+            <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`p-2 rounded-lg border-2 border-dashed transition-colors duration-200 ${isDraggingOver ? 'border-indigo-500 bg-slate-800/50' : 'border-slate-700'}`}
+            >
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                    {referenceImages.map((imgSrc, index) => (
+                        <div key={index} className="relative group">
+                            <img src={imgSrc} alt={`Reference ${index + 1}`} className="w-full h-24 object-cover rounded-lg" />
+                            <button type="button" onClick={() => handleRemoveImage(index)} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 leading-none opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Remove image">
+                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                            </button>
+                        </div>
+                    ))}
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full h-24 flex items-center justify-center border-2 border-dashed border-slate-700 rounded-lg hover:border-indigo-500 text-slate-400 hover:text-indigo-400 transition-colors duration-200">
+                       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                       <span className="sr-only">Add image</span>
+                    </button>
+                </div>
+                 {referenceImages.length === 0 && (
+                    <p className="text-center text-xs text-slate-500 mt-2">
+                        Drag & drop images here or click the '+' button.
+                    </p>
+                )}
+            </div>
+            <input ref={fileInputRef} type="file" multiple accept="image/jpeg,image/png" onChange={handleAddImages} className="hidden" />
           </div>
         )}
         {isImagen && <p className="text-xs text-slate-500">Reference images are not supported by the Imagen model.</p>}
