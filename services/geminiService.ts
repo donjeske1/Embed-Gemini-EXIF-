@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Modality, Part, Type } from "@google/genai";
 import type { AspectRatio, ImageModel } from "../types";
 
@@ -19,31 +18,32 @@ interface GenerationConfig {
     numberOfImages?: number;
 }
 
-export const generateExamplePrompts = async (): Promise<string[]> => {
+// Helper for streaming JSON-based content
+const streamAndParseJson = async (
+    model: string,
+    contents: string,
+    config: any // Simplified for internal use
+): Promise<any> => {
+    // FIX: Await the generateContent call to ensure the response is fully received before parsing.
+    const response = await ai.models.generateContent({ model, contents, config });
+    const jsonText = response.text.trim();
+    return JSON.parse(jsonText);
+};
+
+export const generateExamplePromptsStream = async (): Promise<string[]> => {
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Generate 8 diverse and creative image generation prompts.`,
-            config: {
+        const result = await streamAndParseJson(
+            'gemini-2.5-flash',
+            `Generate 8 diverse and creative image generation prompts.`,
+            {
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
-                    properties: {
-                        prompts: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.STRING,
-                                description: "A single, detailed and visually descriptive prompt."
-                            }
-                        }
-                    }
+                    properties: { prompts: { type: Type.ARRAY, items: { type: Type.STRING, description: "A single, detailed and visually descriptive prompt." } } }
                 },
                 systemInstruction: "You are a creative assistant for an AI image generator. Your task is to generate a list of 8 distinct, visually descriptive, and detailed prompts. The prompts should cover a wide range of styles and subjects (e.g., photorealism, fantasy, watercolor, sci-fi, abstract). Return the response as a JSON object with a single key 'prompts' which is an array of strings. Do not include any other text or markdown formatting, just the raw JSON object.",
             }
-        });
-
-        const jsonText = response.text.trim();
-        const result = JSON.parse(jsonText);
+        );
 
         if (result.prompts && Array.isArray(result.prompts)) {
             return result.prompts.filter(s => typeof s === 'string');
@@ -53,65 +53,51 @@ export const generateExamplePrompts = async (): Promise<string[]> => {
     } catch (error) {
         console.error("Error generating example prompts:", error);
         if (error instanceof Error) {
-                throw new Error(`Failed to generate example prompts: ${error.message}`);
+            throw new Error(`Failed to generate example prompts: ${error.message}`);
         }
         throw new Error("An unknown error occurred while generating example prompts.");
     }
 };
 
-export const generateGroundedPrompt = async (userPrompt: string): Promise<string> => {
+export const generateGroundedPromptStream = async function* (userPrompt: string): AsyncGenerator<string> {
     try {
-        const response = await ai.models.generateContent({
+        const responseStream = await ai.models.generateContentStream({
             model: 'gemini-2.5-flash',
             contents: `Based on the user's request, use Google Search to find visual details and then write a single, detailed, descriptive prompt for a text-to-image generator. Output ONLY the final prompt text, with no additional commentary, labels, or formatting like markdown. User request: "${userPrompt}"`,
-            // Fix: Moved systemInstruction into the config object.
             config: {
                 tools: [{ googleSearch: {} }],
                 systemInstruction: "You are an expert prompt writer for AI image generators. Your goal is to take a user's idea, use web search to gather specific visual details if necessary, and then synthesize that information into a single, rich, and effective prompt. You must only output the prompt itself."
             },
         });
 
-        const groundedPrompt = response.text;
-        if (!groundedPrompt || groundedPrompt.trim() === '') {
-            throw new Error("The model did not return a grounded prompt.");
+        for await (const chunk of responseStream) {
+            const text = chunk.text;
+            if (text) {
+                yield text;
+            }
         }
-        return groundedPrompt.trim();
-
     } catch (error) {
         console.error("Error generating grounded prompt:", error);
-        if (error instanceof Error) {
-            throw new Error(`Failed to generate grounded prompt: ${error.message}`);
-        }
-        throw new Error("An unknown error occurred while generating the grounded prompt.");
+        const message = error instanceof Error ? error.message : "An unknown error occurred.";
+        throw new Error(`Failed to generate grounded prompt: ${message}`);
     }
 };
 
 
-export const enhancePrompt = async (simplePrompt: string): Promise<string[]> => {
+export const enhancePromptStream = async (simplePrompt: string): Promise<string[]> => {
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Based on the following idea, create three diverse and detailed prompts for an image generator: "${simplePrompt}"`,
-            config: {
+        const result = await streamAndParseJson(
+            'gemini-2.5-flash',
+            `Based on the following idea, create three diverse and detailed prompts for an image generator: "${simplePrompt}"`,
+            {
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
-                    properties: {
-                        suggestions: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.STRING,
-                                description: "A single, detailed and visually descriptive prompt suggestion."
-                            }
-                        }
-                    }
+                    properties: { suggestions: { type: Type.ARRAY, items: { type: Type.STRING, description: "A single, detailed and visually descriptive prompt suggestion." } } }
                 },
                 systemInstruction: "You are a creative assistant for an AI image generator. Your task is to take a user's simple idea and expand it into three distinct, visually descriptive, and detailed prompts. The prompts should be suitable for a text-to-image model. Return the response as a JSON object with a single key 'suggestions' which is an array of strings. Do not include any other text or markdown formatting, just the raw JSON object.",
             }
-        });
-
-        const jsonText = response.text.trim();
-        const result = JSON.parse(jsonText);
+        );
 
         if (result.suggestions && Array.isArray(result.suggestions)) {
             return result.suggestions.filter(s => typeof s === 'string');
@@ -121,39 +107,32 @@ export const enhancePrompt = async (simplePrompt: string): Promise<string[]> => 
     } catch (error) {
         console.error("Error enhancing prompt:", error);
         if (error instanceof Error) {
-                throw new Error(`Failed to enhance prompt: ${error.message}`);
+            throw new Error(`Failed to enhance prompt: ${error.message}`);
         }
         throw new Error("An unknown error occurred while enhancing the prompt.");
     }
 };
 
-export const describeImage = async (referenceImage: ReferenceImage): Promise<string> => {
+export const describeImageStream = async function* (referenceImage: ReferenceImage): AsyncGenerator<string> {
     try {
-        const imagePart = {
-            inlineData: {
-                mimeType: referenceImage.mimeType,
-                data: referenceImage.data,
-            },
-        };
-        const textPart = {
-            text: "Describe this image in detail. Your description should be a high-quality prompt that could be used to generate a similar image with an AI text-to-image model. Focus on the visual elements, style, composition, and mood."
-        };
-        const response = await ai.models.generateContent({
+        const imagePart = { inlineData: { mimeType: referenceImage.mimeType, data: referenceImage.data } };
+        const textPart = { text: "Describe this image in detail. Your description should be a high-quality prompt that could be used to generate a similar image with an AI text-to-image model. Focus on the visual elements, style, composition, and mood." };
+        
+        const responseStream = await ai.models.generateContentStream({
             model: 'gemini-2.5-flash',
             contents: { parts: [imagePart, textPart] },
         });
 
-        const description = response.text;
-        if (description) {
-            return description.trim();
+        for await (const chunk of responseStream) {
+            const text = chunk.text;
+            if (text) {
+                yield text;
+            }
         }
-        throw new Error("The model did not return a description.");
     } catch (error) {
         console.error("Error describing image:", error);
-        if (error instanceof Error) {
-            throw new Error(`Failed to describe image: ${error.message}`);
-        }
-        throw new Error("An unknown error occurred while describing the image.");
+        const message = error instanceof Error ? error.message : "An unknown error occurred.";
+        throw new Error(`Failed to describe image: ${message}`);
     }
 };
 
@@ -162,20 +141,13 @@ export const refineImage = async (
     referenceImage: ReferenceImage
 ): Promise<string> => {
     try {
-        const imagePart = {
-            inlineData: {
-                mimeType: referenceImage.mimeType,
-                data: referenceImage.data,
-            },
-        };
+        const imagePart = { inlineData: { mimeType: referenceImage.mimeType, data: referenceImage.data } };
         const textPart = { text: prompt };
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
             contents: { parts: [imagePart, textPart] },
-            config: {
-                responseModalities: [Modality.IMAGE],
-            },
+            config: { responseModalities: [Modality.IMAGE] },
         });
 
         const candidate = response.candidates?.[0];
@@ -183,9 +155,7 @@ export const refineImage = async (
         if (!candidate || !candidate.content || !candidate.content.parts) {
             const finishReason = candidate?.finishReason;
             let errorMessage = `Image refinement failed.`;
-            if (finishReason) {
-                errorMessage += ` Reason: ${finishReason}.`;
-            }
+            if (finishReason) { errorMessage += ` Reason: ${finishReason}.`; }
             errorMessage += ` Please check your prompt for any policy violations.`;
             console.error("Image refinement failed or was blocked.", { response });
             throw new Error(errorMessage);
@@ -229,50 +199,40 @@ export const generateImagesFromPrompt = async (
             throw new Error("No image data found in Imagen API response.");
 
         } else { // 'gemini-2.5-flash-image'
-            const generationPromises: Promise<string>[] = [];
-            
-            for (let i = 0; i < numImages; i++) {
-                generationPromises.push((async () => {
-                    const parts: Part[] = [];
+            const generationPromises: Promise<string>[] = Array.from({ length: numImages }).map(() => (async () => {
+                const parts: Part[] = [];
 
-                    if (config.referenceImages && config.referenceImages.length > 0) {
-                        for (const image of config.referenceImages) {
-                            parts.push({
-                                inlineData: { mimeType: image.mimeType, data: image.data }
-                            });
-                        }
+                if (config.referenceImages && config.referenceImages.length > 0) {
+                    parts.push(...config.referenceImages.map(image => ({
+                        inlineData: { mimeType: image.mimeType, data: image.data }
+                    })));
+                }
+                parts.push({ text: prompt });
+
+                const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash-image',
+                    contents: { parts },
+                    config: { responseModalities: [Modality.IMAGE] },
+                });
+
+                const candidate = response.candidates?.[0];
+
+                if (!candidate || !candidate.content || !candidate.content.parts) {
+                    const finishReason = candidate?.finishReason;
+                    let errorMessage = `Image generation failed.`;
+                    if (finishReason) { errorMessage += ` Reason: ${finishReason}.`; }
+                    errorMessage += ` Please check your prompt and reference image for any policy violations.`;
+                    console.error("Image generation failed or was blocked.", { response });
+                    throw new Error(errorMessage);
+                }
+
+                for (const part of candidate.content.parts) {
+                    if (part.inlineData) {
+                        return part.inlineData.data;
                     }
-                    parts.push({ text: prompt });
-
-                    const response = await ai.models.generateContent({
-                        model: 'gemini-2.5-flash-image',
-                        contents: { parts },
-                        config: {
-                            responseModalities: [Modality.IMAGE],
-                        },
-                    });
-
-                    const candidate = response.candidates?.[0];
-
-                    if (!candidate || !candidate.content || !candidate.content.parts) {
-                        const finishReason = candidate?.finishReason;
-                        let errorMessage = `Image generation failed.`;
-                        if (finishReason) {
-                            errorMessage += ` Reason: ${finishReason}.`;
-                        }
-                        errorMessage += ` Please check your prompt and reference image for any policy violations.`;
-                        console.error("Image generation failed or was blocked.", { response });
-                        throw new Error(errorMessage);
-                    }
-
-                    for (const part of candidate.content.parts) {
-                        if (part.inlineData) {
-                            return part.inlineData.data;
-                        }
-                    }
-                    throw new Error("No image data found in Nano Banana API response.");
-                })());
-            }
+                }
+                throw new Error("No image data found in Nano Banana API response.");
+            })());
 
             return await Promise.all(generationPromises);
         }
