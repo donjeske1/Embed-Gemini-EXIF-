@@ -79,7 +79,7 @@ const extractMetadataFromImage = (imageDataUrl: string): GenerationMetadata | st
 
 const App: React.FC = () => {
   const { state, dispatch } = useAppContext();
-  const { view, error, model, selectedImageIndex, activeHistoryId, activeBatchHistoryIds, generationHistory, refinementPrompt, generatedImages } = state;
+  const { view, mobileView, error, model, selectedImageIndex, activeHistoryId, activeBatchHistoryIds, generationHistory, refinementPrompt, generatedImages } = state;
 
   const fetchExamplePrompts = useCallback(async () => {
       dispatch({ type: 'SET_FETCHING_EXAMPLES', payload: true });
@@ -121,7 +121,6 @@ const App: React.FC = () => {
             const stream = generateGroundedPromptStream(currentPrompt);
             for await (const chunk of stream) {
                 groundedPrompt += chunk;
-                // You could update a temporary state here to show streaming text
             }
             finalPromptForApi = groundedPrompt;
             originalPromptForMetadata = currentPrompt;
@@ -133,7 +132,6 @@ const App: React.FC = () => {
             prompt: finalPromptForApi,
             originalPrompt: originalPromptForMetadata,
             aspectRatio: currentModel === 'imagen-4.0-generate-001' ? currentAspectRatio : undefined,
-            // FIX: Add promptMode to the metadata so it can be restored from history.
             promptMode: state.promptMode,
         };
         
@@ -166,7 +164,6 @@ const App: React.FC = () => {
         dispatch({ type: 'SET_ERROR', payload: e.message || "An unknown error occurred." });
         dispatch({ type: 'SET_LOADING', payload: false });
     }
-  // FIX: Add state.promptMode to the dependency array.
   }, [state.useWebSearch, state.referenceImages, dispatch, state.promptMode]);
 
   const handleGenerateAllSuggestions = useCallback(async (suggestions: string[]) => {
@@ -180,7 +177,6 @@ const App: React.FC = () => {
                 model: model,
                 prompt: suggestionPrompt,
                 aspectRatio: isImagen ? state.aspectRatio : undefined,
-                // FIX: Suggestions are always text, so explicitly set promptMode.
                 promptMode: 'text',
             };
 
@@ -265,7 +261,6 @@ const App: React.FC = () => {
       dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'aspectRatio', value: aspectRatio || '1:1' }});
       dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'prompt', value: prompt }});
       
-      // FIX: Set the correct prompt mode based on the extracted metadata.
       const isNanoBanana = model === 'gemini-2.5-flash-image';
       const isLikelyJson = (str: string) => {
           const trimmed = str.trim();
@@ -327,7 +322,6 @@ const App: React.FC = () => {
         const stream = describeImageStream(referenceImage);
         for await (const chunk of stream) {
             description += chunk;
-            // This could be used to stream the description to the UI in real-time
         }
 
         const newMetadata: GenerationMetadata = { model: 'gemini-2.5-flash-image', prompt: description, promptMode: 'text' };
@@ -338,55 +332,111 @@ const App: React.FC = () => {
         dispatch({ type: 'SET_DESCRIBING', payload: false });
     }
   }, [state.imagePreview, dispatch]);
+  
+  const hasResults = generatedImages && generatedImages.length > 0;
+  const hasHistory = generationHistory.length > 0;
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 sm:p-6 lg:p-8">
-      <div className="w-full max-w-2xl mx-auto">
+    <div className="min-h-screen p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8">
+      <div className="w-full max-w-7xl mx-auto">
         <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">
+          <h1 className="text-4xl lg:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">
             Gemini EXIF Data Embedder
           </h1>
           <p className="text-slate-400 mt-2">Generate AI images and manage embedded metadata prompts.</p>
         </header>
 
-        <main className="bg-slate-900/70 rounded-xl shadow-2xl p-1 backdrop-blur-lg">
-           <div className="bg-slate-900 rounded-lg p-6 sm:p-8">
-            <div className="border-b border-slate-800 mb-6">
-                <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-                    <button onClick={() => dispatch({ type: 'SET_VIEW', payload: 'generate' })} className={`${view === 'generate' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}>
-                        Generate Image
-                    </button>
-                    <button onClick={() => dispatch({ type: 'SET_VIEW', payload: 'extract' })} className={`${view === 'extract' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}>
-                        Extract Metadata
-                    </button>
-                </nav>
-            </div>
+        <div className="border-b border-slate-800 mb-6">
+            <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+                <button onClick={() => dispatch({ type: 'SET_VIEW', payload: 'generate' })} className={`${view === 'generate' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}>
+                    Generate Image
+                </button>
+                <button onClick={() => dispatch({ type: 'SET_VIEW', payload: 'extract' })} className={`${view === 'extract' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}>
+                    Extract Metadata
+                </button>
+            </nav>
+        </div>
 
-            {error && <div className="text-red-400 bg-red-900/50 p-3 rounded-lg mb-4">{error}</div>}
+        {error && <div className="text-red-400 bg-red-900/50 p-3 rounded-lg mb-4">{error}</div>}
 
-            {view === 'generate' ? (
-                <>
+        <main className="grid grid-cols-1 lg:grid-cols-5 lg:gap-8">
+          {view === 'generate' ? (
+            <>
+              {/* --- Left Column (GENERATE VIEW) --- */}
+              <div className={`lg:col-span-2 lg:sticky lg:top-8 self-start ${mobileView === 'results' ? 'hidden' : 'block'} lg:block`}>
+                <div className="bg-slate-900/70 rounded-xl shadow-2xl p-1 backdrop-blur-lg">
+                  <div className="bg-slate-900 rounded-lg p-6 sm:p-8">
                     <ImageGeneratorForm 
-                        onGenerate={handleGenerate}
-                        onGenerateAllSuggestions={handleGenerateAllSuggestions}
-                        onRefreshExamples={fetchExamplePrompts}
+                      onGenerate={handleGenerate}
+                      onGenerateAllSuggestions={handleGenerateAllSuggestions}
+                      onRefreshExamples={fetchExamplePrompts}
                     />
-                    <ResultsViewer onRefine={handleRefine} />
-                    <GenerationHistory onSelectItem={handleSelectHistoryItem} />
-                </>
-            ) : (
-                <PromptExtractor 
-                    onFileSelect={handleFileSelect}
-                    onUsePrompt={handleUseExtractedPrompt}
-                    onDescribeImage={handleDescribeImage}
-                />
-            )}
-           </div>
+                  </div>
+                </div>
+              </div>
+              {/* --- Right Column (GENERATE VIEW) --- */}
+              <div className={`lg:col-span-3 mt-8 lg:mt-0 ${mobileView === 'form' ? 'hidden' : 'block'} lg:block`}>
+                {hasResults && <ResultsViewer onRefine={handleRefine} />}
+                {hasHistory && <GenerationHistory onSelectItem={handleSelectHistoryItem} />}
+                {!hasResults && !hasHistory && (
+                    <div className="h-full flex items-center justify-center text-center text-slate-500 bg-slate-900/70 rounded-xl p-8 min-h-[400px] lg:min-h-0">
+                       <p>Your generated images and history will appear here.</p>
+                    </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* --- Left Column (EXTRACT VIEW) --- */}
+              <div className="lg:col-span-2 lg:sticky lg:top-8 self-start">
+                 <div className="bg-slate-900/70 rounded-xl shadow-2xl p-1 backdrop-blur-lg">
+                    <div className="bg-slate-900 rounded-lg p-6 sm:p-8">
+                      <PromptExtractor 
+                          onFileSelect={handleFileSelect}
+                          onUsePrompt={handleUseExtractedPrompt}
+                          onDescribeImage={handleDescribeImage}
+                      />
+                    </div>
+                  </div>
+              </div>
+              {/* --- Right Column (EXTRACT VIEW) --- */}
+              <div className="hidden lg:block lg:col-span-3 mt-8 lg:mt-0">
+                  <div className="h-full flex items-center justify-center text-center text-slate-500 bg-slate-900/70 rounded-xl p-8">
+                     <p>Upload an image on the left to view its preview and extracted metadata here.</p>
+                  </div>
+              </div>
+            </>
+          )}
         </main>
-        <footer className="w-full max-w-2xl mx-auto mt-8 text-center text-slate-500 text-sm">
+
+        <footer className="w-full mt-12 text-center text-slate-500 text-sm">
              <p>&copy; 2024 AI Image Tools. All features implemented.</p>
         </footer>
       </div>
+
+       {/* --- Mobile View Toggles --- */}
+       {view === 'generate' && (
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900/80 backdrop-blur-lg border-t border-slate-800 p-2 flex gap-2 z-50">
+              <button 
+                onClick={() => dispatch({ type: 'SET_MOBILE_VIEW', payload: 'form' })}
+                className={`w-full py-3 rounded-lg font-semibold text-sm transition-colors ${mobileView === 'form' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300'}`}
+              >
+                  Generate
+              </button>
+              <button 
+                onClick={() => dispatch({ type: 'SET_MOBILE_VIEW', payload: 'results' })}
+                disabled={!generatedImages || generatedImages.length === 0}
+                className={`w-full py-3 rounded-lg font-semibold text-sm transition-colors relative ${mobileView === 'results' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300'} disabled:bg-slate-800 disabled:text-slate-600`}
+              >
+                  Results
+                  {generatedImages && generatedImages.length > 0 && (
+                     <span className="absolute -top-1 -right-1 bg-sky-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center ring-2 ring-slate-900">
+                        {generatedImages.length}
+                     </span>
+                  )}
+              </button>
+          </div>
+       )}
     </div>
   );
 };

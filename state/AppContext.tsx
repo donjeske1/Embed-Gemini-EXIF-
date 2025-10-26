@@ -3,15 +3,14 @@ import type { ImageModel, AspectRatio, View } from '../types';
 
 // --- STATE SHAPE ---
 
-// FIX: Define PromptMode to be used in the global state.
 export type PromptMode = 'text' | 'json';
+export type MobileView = 'form' | 'results';
 
 export interface GenerationMetadata {
   model: ImageModel;
   prompt: string;
   originalPrompt?: string;
   aspectRatio?: AspectRatio;
-  // FIX: Add promptMode to metadata to persist it.
   promptMode?: PromptMode;
 }
 
@@ -24,6 +23,7 @@ export interface HistoryItem {
 
 export interface AppState {
   view: View;
+  mobileView: MobileView;
   isLoading: boolean;
   isRefining: boolean;
   isDescribing: boolean;
@@ -33,7 +33,6 @@ export interface AppState {
   // Generation Form State
   prompt: string;
   model: ImageModel;
-  // FIX: Add promptMode to the global application state.
   promptMode: PromptMode;
   aspectRatio: AspectRatio;
   numberOfImages: number;
@@ -61,6 +60,7 @@ export interface AppState {
 
 export const initialState: AppState = {
   view: 'generate',
+  mobileView: 'form',
   isLoading: false,
   isRefining: false,
   isDescribing: false,
@@ -68,7 +68,6 @@ export const initialState: AppState = {
   error: null,
   prompt: "A majestic bioluminescent jellyfish floating in a dark, deep ocean, surrounded by sparkling plankton.",
   model: 'gemini-2.5-flash-image',
-  // FIX: Initialize promptMode in the initial state.
   promptMode: 'text',
   aspectRatio: '1:1',
   numberOfImages: 1,
@@ -92,6 +91,7 @@ export const initialState: AppState = {
 
 export type Action =
   | { type: 'SET_VIEW'; payload: View }
+  | { type: 'SET_MOBILE_VIEW'; payload: MobileView }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_REFINING'; payload: boolean }
   | { type: 'SET_DESCRIBING'; payload: boolean }
@@ -118,7 +118,9 @@ export type Action =
 const appReducer = (state: AppState, action: Action): AppState => {
   switch (action.type) {
     case 'SET_VIEW':
-      return { ...state, view: action.payload };
+      return { ...state, view: action.payload, mobileView: 'form', error: null };
+    case 'SET_MOBILE_VIEW':
+      return { ...state, mobileView: action.payload };
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
     case 'SET_REFINING':
@@ -143,6 +145,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             referenceImages: [],
             useWebSearch: false,
             selectedImageIndex: 0,
+            mobileView: 'results',
         };
     case 'BATCH_GENERATION_SUCCESS':
         return {
@@ -155,6 +158,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             referenceImages: [],
             useWebSearch: false,
             selectedImageIndex: 0,
+            mobileView: 'results',
         };
     case 'REFINEMENT_SUCCESS': {
         const { newImage, newHistoryItem } = action.payload;
@@ -179,7 +183,6 @@ const appReducer = (state: AppState, action: Action): AppState => {
             model: metadata.model,
             aspectRatio: metadata.aspectRatio || '1:1',
             prompt: metadata.prompt,
-            // FIX: Correctly set promptMode from metadata, with a safe fallback to 'text'.
             promptMode: metadata.promptMode || 'text',
             generatedImages: images,
             activeHistoryId: action.payload.id,
@@ -188,6 +191,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             referenceImages: [],
             error: null,
             refinementPrompt: '',
+            mobileView: 'results',
         };
     }
     case 'START_EXTRACTION':
