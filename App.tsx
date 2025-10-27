@@ -240,7 +240,14 @@ const App: React.FC = () => {
 
         const refinedImageWithMetadata = await embedMetadataInImage(refinedBase64, 'image/png', newMetadata);
         
-        const newHistoryItem = { ...activeHistoryItem, images: [refinedImageWithMetadata], metadata: newMetadata };
+        // This is the key change. We determine how to update the history item's images array.
+        const updatedHistoryImages = activeBatchHistoryIds
+            ? [refinedImageWithMetadata] // For batch, the history item only has one image, so we replace it.
+            : activeHistoryItem.images.map((img, index) => // For a multi-image item, we replace only the selected image.
+                index === selectedImageIndex ? refinedImageWithMetadata : img
+              );
+
+        const newHistoryItem = { ...activeHistoryItem, images: updatedHistoryImages, metadata: newMetadata };
 
         dispatch({ type: 'REFINEMENT_SUCCESS', payload: { newImage: refinedImageWithMetadata, newHistoryItem } });
     } catch (e: any) {
