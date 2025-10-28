@@ -14,6 +14,7 @@ import ResultsViewer from './components/ResultsViewer';
 import PromptExtractor from './components/PromptExtractor';
 import GenerationHistory from './components/GenerationHistory';
 import MetadataViewer from './components/MetadataViewer';
+import Settings from './components/Settings';
 
 // To inform TypeScript about the global piexif object from the CDN script
 declare const piexif: any;
@@ -80,7 +81,7 @@ const extractMetadataFromImage = (imageDataUrl: string): GenerationMetadata | st
 
 const App: React.FC = () => {
   const { state, dispatch } = useAppContext();
-  const { view, mobileView, error, model, selectedImageIndex, activeHistoryId, activeBatchHistoryIds, generationHistory, refinementPrompt, generatedImages } = state;
+  const { view, mobileView, error, model, selectedImageIndex, activeHistoryId, activeBatchHistoryIds, generationHistory, refinementPrompt, generatedImages, isNightMode } = state;
 
   const fetchExamplePrompts = useCallback(async () => {
       dispatch({ type: 'SET_FETCHING_EXAMPLES', payload: true });
@@ -98,6 +99,14 @@ const App: React.FC = () => {
           dispatch({ type: 'SET_EXAMPLE_PROMPTS', payload: { prompts: fallbackPrompts, error: "Could not fetch new example prompts. Displaying defaults." } });
       }
   }, [dispatch]);
+  
+  useEffect(() => {
+    if (isNightMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isNightMode]);
 
   useEffect(() => {
       fetchExamplePrompts();
@@ -347,33 +356,36 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8">
       <div className="w-full max-w-7xl mx-auto">
-        <header className="text-center mb-8">
+        <header className="text-center mb-8 relative">
+           <div className="absolute top-0 right-0">
+             <Settings />
+           </div>
           <h1 className="text-4xl lg:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">
             Gemini EXIF Data Embedder
           </h1>
-          <p className="text-slate-400 mt-2">Generate AI images and manage embedded metadata prompts.</p>
+          <p className="text-slate-600 dark:text-slate-400 mt-2">Generate AI images and manage embedded metadata prompts.</p>
         </header>
 
-        <div className="border-b border-slate-800 mb-6">
+        <div className="border-b border-slate-200 dark:border-slate-800 mb-6">
             <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-                <button onClick={() => dispatch({ type: 'SET_VIEW', payload: 'generate' })} className={`${view === 'generate' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}>
+                <button onClick={() => dispatch({ type: 'SET_VIEW', payload: 'generate' })} className={`${view === 'generate' ? 'border-indigo-500 text-indigo-500 dark:text-indigo-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}>
                     Generate Image
                 </button>
-                <button onClick={() => dispatch({ type: 'SET_VIEW', payload: 'extract' })} className={`${view === 'extract' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}>
+                <button onClick={() => dispatch({ type: 'SET_VIEW', payload: 'extract' })} className={`${view === 'extract' ? 'border-indigo-500 text-indigo-500 dark:text-indigo-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}>
                     Extract Metadata
                 </button>
             </nav>
         </div>
 
-        {error && <div className="text-red-400 bg-red-900/50 p-3 rounded-lg mb-4">{error}</div>}
+        {error && <div className="text-red-800 dark:text-red-400 bg-red-100 dark:bg-red-900/50 p-3 rounded-lg mb-4">{error}</div>}
 
         <main className="grid grid-cols-1 lg:grid-cols-5 lg:gap-8">
           {view === 'generate' ? (
             <>
               {/* --- Left Column (GENERATE VIEW) --- */}
               <div className={`lg:col-span-2 lg:sticky lg:top-8 self-start ${mobileView === 'results' ? 'hidden' : 'block'} lg:block`}>
-                <div className="bg-slate-900/70 rounded-xl shadow-2xl p-1 backdrop-blur-lg">
-                  <div className="bg-slate-900 rounded-lg p-6 sm:p-8">
+                <div className="bg-slate-100/70 dark:bg-slate-900/70 rounded-xl shadow-2xl p-1 backdrop-blur-lg">
+                  <div className="bg-white dark:bg-slate-900 rounded-lg p-6 sm:p-8">
                     <ImageGeneratorForm 
                       onGenerate={handleGenerate}
                       onGenerateAllSuggestions={handleGenerateAllSuggestions}
@@ -387,7 +399,7 @@ const App: React.FC = () => {
                 {hasResults && <ResultsViewer onRefine={handleRefine} />}
                 {hasHistory && <GenerationHistory onSelectItem={handleSelectHistoryItem} />}
                 {!hasResults && !hasHistory && (
-                    <div className="h-full flex items-center justify-center text-center text-slate-500 bg-slate-900/70 rounded-xl p-8 min-h-[400px] lg:min-h-0">
+                    <div className="h-full flex items-center justify-center text-center text-slate-500 bg-white/70 dark:bg-slate-900/70 rounded-xl p-8 min-h-[400px] lg:min-h-0">
                        <p>Your generated images and history will appear here.</p>
                     </div>
                 )}
@@ -397,8 +409,8 @@ const App: React.FC = () => {
             <>
               {/* --- Left Column (EXTRACT VIEW) --- */}
               <div className="lg:col-span-2 lg:sticky lg:top-8 self-start">
-                 <div className="bg-slate-900/70 rounded-xl shadow-2xl p-1 backdrop-blur-lg">
-                    <div className="bg-slate-900 rounded-lg p-6 sm:p-8">
+                 <div className="bg-slate-100/70 dark:bg-slate-900/70 rounded-xl shadow-2xl p-1 backdrop-blur-lg">
+                    <div className="bg-white dark:bg-slate-900 rounded-lg p-6 sm:p-8">
                       <PromptExtractor 
                           onFileSelect={handleFileSelect}
                           onDescribeImage={handleDescribeImage}
@@ -421,21 +433,21 @@ const App: React.FC = () => {
 
        {/* --- Mobile View Toggles --- */}
        {view === 'generate' && (
-          <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900/80 backdrop-blur-lg border-t border-slate-800 p-2 flex gap-2 z-50">
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 p-2 flex gap-2 z-50">
               <button 
                 onClick={() => dispatch({ type: 'SET_MOBILE_VIEW', payload: 'form' })}
-                className={`w-full py-3 rounded-lg font-semibold text-sm transition-colors ${mobileView === 'form' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300'}`}
+                className={`w-full py-3 rounded-lg font-semibold text-sm transition-colors ${mobileView === 'form' ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-300'}`}
               >
                   Generate
               </button>
               <button 
                 onClick={() => dispatch({ type: 'SET_MOBILE_VIEW', payload: 'results' })}
                 disabled={!generatedImages || generatedImages.length === 0}
-                className={`w-full py-3 rounded-lg font-semibold text-sm transition-colors relative ${mobileView === 'results' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300'} disabled:bg-slate-800 disabled:text-slate-600`}
+                className={`w-full py-3 rounded-lg font-semibold text-sm transition-colors relative ${mobileView === 'results' ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-300'} disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600`}
               >
                   Results
                   {generatedImages && generatedImages.length > 0 && (
-                     <span className="absolute -top-1 -right-1 bg-sky-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center ring-2 ring-slate-900">
+                     <span className="absolute -top-1 -right-1 bg-sky-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center ring-2 ring-white dark:ring-slate-900">
                         {generatedImages.length}
                      </span>
                   )}

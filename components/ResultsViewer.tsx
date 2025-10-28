@@ -43,7 +43,7 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine }) => {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {generatedImages.map((imgSrc, index) => (
-                    <button key={index} onClick={() => dispatch({ type: 'SET_SELECTED_IMAGE_INDEX', payload: index })} className={`rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 ${selectedImageIndex === index ? 'ring-2 ring-indigo-500' : 'ring-1 ring-slate-700 hover:ring-indigo-600'}`}>
+                    <button key={index} onClick={() => dispatch({ type: 'SET_SELECTED_IMAGE_INDEX', payload: index })} className={`rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 focus:ring-indigo-500 ${selectedImageIndex === index ? 'ring-2 ring-indigo-500' : 'ring-1 ring-slate-300 dark:ring-slate-700 hover:ring-indigo-500 dark:hover:ring-indigo-600'}`}>
                         <img src={imgSrc} alt={`Generated ${index + 1}`} className="w-full h-full object-cover aspect-square" />
                     </button>
                 ))}
@@ -60,19 +60,19 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine }) => {
             )}
 
             {selectedImageUrl && !isImagen && (
-                <div className="space-y-3 pt-4 border-t border-slate-800">
-                    <h3 className="text-lg font-semibold text-teal-400">Conversational Refinement</h3>
-                    <p className="text-sm text-slate-400">Describe a change to the selected image above.</p>
+                <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <h3 className="text-lg font-semibold text-teal-500 dark:text-teal-400">Conversational Refinement</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Describe a change to the selected image above.</p>
                     <textarea
                         value={refinementPrompt}
                         onChange={(e) => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'refinementPrompt', value: e.target.value } })}
                         placeholder="e.g., Make the jellyfish glow brighter, change the style to watercolor..."
-                        className="w-full h-24 p-3 bg-slate-800/80 border border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono text-sm transition-colors duration-200"
+                        className="w-full h-24 p-3 bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono text-sm transition-colors duration-200"
                     />
                     <button
                         onClick={onRefine}
                         disabled={isLoading || isRefining || !refinementPrompt.trim()}
-                        className="w-full flex justify-center items-center gap-2 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200"
+                        className="w-full flex justify-center items-center gap-2 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200"
                     >
                         {isRefining ? <><LoaderIcon /> Refining...</> : 'Refine Image'}
                     </button>

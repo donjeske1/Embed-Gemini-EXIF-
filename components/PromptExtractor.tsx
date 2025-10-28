@@ -50,16 +50,16 @@ const PromptExtractor: React.FC<PromptExtractorProps> = ({ onFileSelect, onDescr
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-indigo-400">Extract Metadata from Image</h2>
-        <p className="text-slate-400 mt-1">Upload an image (JPEG/PNG) to check for an embedded generation prompt and other metadata.</p>
+        <h2 className="text-xl font-semibold text-indigo-500 dark:text-indigo-400">Extract Metadata from Image</h2>
+        <p className="text-slate-600 dark:text-slate-400 mt-1">Upload an image (JPEG/PNG) to check for an embedded generation prompt and other metadata.</p>
       </div>
 
       <div
           onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
           onDrop={handleDrop}
+          onDragLeave={handleDragLeave}
           onClick={() => fileInputRef.current?.click()}
-          className={`relative cursor-pointer p-4 rounded-lg border-2 border-dashed transition-colors duration-200 ${isDraggingOver ? 'border-indigo-500 bg-slate-800/50' : 'border-slate-700 hover:border-slate-500'}`}
+          className={`relative cursor-pointer p-4 rounded-lg border-2 border-dashed transition-colors duration-200 ${isDraggingOver ? 'border-indigo-500 bg-slate-200/50 dark:bg-slate-800/50' : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500'}`}
           aria-label="Image upload area"
       >
         <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" onChange={handleFileChange} className="hidden" />
@@ -72,8 +72,8 @@ const PromptExtractor: React.FC<PromptExtractorProps> = ({ onFileSelect, onDescr
                 </div>
             </div>
         ) : (
-            <div className="text-center text-slate-400 py-10">
-                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="text-center text-slate-500 dark:text-slate-400 py-10">
+                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 <p className="mt-2 font-semibold">Drag & drop an image here</p>
@@ -83,7 +83,7 @@ const PromptExtractor: React.FC<PromptExtractorProps> = ({ onFileSelect, onDescr
       </div>
 
       {extractionMessage && (
-        <div className={`p-4 rounded-lg ${isPromptValid ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300'}`}>
+        <div className={`p-4 rounded-lg ${isPromptValid ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300' : 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300'}`}>
             <h3 className="font-bold text-lg mb-2">
               {extractedMetadata 
                 ? (isPromptValid ? "Metadata Found!" : "Invalid Prompt Found") 
@@ -104,7 +104,7 @@ const PromptExtractor: React.FC<PromptExtractorProps> = ({ onFileSelect, onDescr
                 type="button"
                 onClick={onDescribeImage}
                 disabled={isDescribing}
-                className="w-full flex justify-center items-center gap-2 bg-teal-700 hover:bg-teal-600 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+                className="w-full flex justify-center items-center gap-2 bg-teal-700 hover:bg-teal-600 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
             >
                 {isDescribing ? <><LoaderIcon /> Describing Image...</> : '🖼️ Describe Image with AI'}
             </button>

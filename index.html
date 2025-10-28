@@ -9,6 +9,12 @@
     <link rel="apple-touch-icon" href="/icon-192.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.min.js"></script>
+<script>
+  // Enable class-based dark mode in TailwindCSS
+  tailwind.config = {
+    darkMode: 'class',
+  }
+</script>
 <script type="importmap">
 {
   "imports": {
@@ -20,7 +26,7 @@
 }
 </script>
 </head>
-<body class="bg-slate-950 text-slate-300 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 to-slate-950">
+<body class="bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-300 dark:bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] dark:from-slate-900 dark:to-slate-950 transition-colors duration-300">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>

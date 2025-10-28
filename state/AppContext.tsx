@@ -25,6 +25,7 @@ export interface AppState {
   view: View;
   mobileView: MobileView;
   isLoading: boolean;
+  isNightMode: boolean;
   isRefining: boolean;
   isDescribing: boolean;
   isFetchingExamples: boolean;
@@ -62,6 +63,7 @@ export const initialState: AppState = {
   view: 'generate',
   mobileView: 'form',
   isLoading: false,
+  isNightMode: true,
   isRefining: false,
   isDescribing: false,
   isFetchingExamples: true,
@@ -110,6 +112,7 @@ export type Action =
   | { type: 'SET_EXTRACTED_METADATA'; payload: GenerationMetadata | null }
   | { type: 'SET_IS_EDITING_PROMPT'; payload: boolean }
   | { type: 'VALIDATE_EDITED_PROMPT' }
+  | { type: 'TOGGLE_NIGHT_MODE' }
   | { type: 'SET_EXAMPLE_PROMPTS'; payload: { prompts: string[]; error?: string } };
 
 
@@ -121,6 +124,8 @@ const appReducer = (state: AppState, action: Action): AppState => {
       return { ...state, view: action.payload, mobileView: 'form', error: null };
     case 'SET_MOBILE_VIEW':
       return { ...state, mobileView: action.payload };
+    case 'TOGGLE_NIGHT_MODE':
+      return { ...state, isNightMode: !state.isNightMode };
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
     case 'SET_REFINING':
