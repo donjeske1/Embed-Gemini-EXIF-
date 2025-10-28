@@ -419,7 +419,7 @@ const App: React.FC = () => {
                   </div>
               </div>
               {/* --- Right Column (EXTRACT VIEW) --- */}
-              <div className="hidden lg:block lg:col-span-3 mt-8 lg:mt-0 self-start">
+              <div className="lg:col-span-3 mt-8 lg:mt-0 self-start">
                   <MetadataViewer onUsePrompt={handleUseExtractedPrompt} />
               </div>
             </>
