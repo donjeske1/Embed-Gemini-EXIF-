@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useAppContext, GenerationMetadata } from '../state/AppContext';
 import LoaderIcon from './ui/LoaderIcon';
 
@@ -29,12 +29,40 @@ const PromptExtractor: React.FC<PromptExtractorProps> = ({ onFileSelect, onUsePr
     extractedMetadata, imagePreview, extractionMessage, isPromptValid, isEditingPrompt, isDescribing
   } = state;
 
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const processFile = useCallback((file: File | null) => {
+    if (file && file.type.match('image.*')) {
+      onFileSelect(file);
+    }
+  }, [onFileSelect]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      onFileSelect(e.target.files[0]);
+      processFile(e.target.files[0]);
     }
   };
   
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setIsDraggingOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setIsDraggingOver(false);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          processFile(e.dataTransfer.files[0]);
+          e.dataTransfer.clearData();
+      }
+  }, [processFile]);
+
   const displayPrompt = formatJsonDisplay(extractedMetadata?.prompt || null);
 
   const handlePromptTextAreaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -56,20 +84,37 @@ const PromptExtractor: React.FC<PromptExtractorProps> = ({ onFileSelect, onUsePr
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-indigo-400">Extract Metadata from Image</h2>
-        <p className="text-slate-400 mt-1">Upload an image (JPEG) to check for an embedded generation prompt and other metadata.</p>
+        <p className="text-slate-400 mt-1">Upload an image (JPEG/PNG) to check for an embedded generation prompt and other metadata.</p>
       </div>
-      <input
-        type="file"
-        accept="image/jpeg,image/png"
-        onChange={handleFileChange}
-        className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 transition-colors duration-200"
-      />
-      {imagePreview && (
-         <div className="space-y-4">
-           <h3 className="text-lg font-semibold">Image Preview:</h3>
-           <img src={imagePreview} alt="Uploaded preview" className="rounded-xl shadow-lg max-w-full mx-auto" />
-         </div>
-      )}
+
+      <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`relative cursor-pointer p-4 rounded-lg border-2 border-dashed transition-colors duration-200 ${isDraggingOver ? 'border-indigo-500 bg-slate-800/50' : 'border-slate-700 hover:border-slate-500'}`}
+          aria-label="Image upload area"
+      >
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" onChange={handleFileChange} className="hidden" />
+        
+        {imagePreview ? (
+            <div className="relative group">
+                <img src={imagePreview} alt="Uploaded preview" className="rounded-lg shadow-lg max-w-full mx-auto max-h-64 object-contain" />
+                <div className="absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <p className="text-white font-semibold text-center px-2">Click or drop a new image to replace</p>
+                </div>
+            </div>
+        ) : (
+            <div className="text-center text-slate-400 py-10">
+                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <p className="mt-2 font-semibold">Drag & drop an image here</p>
+                <p className="text-sm text-slate-500">or click to select a file</p>
+            </div>
+        )}
+      </div>
+
       {extractionMessage && (
         <div className={`p-4 rounded-lg ${isPromptValid ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300'}`}>
             <h3 className="font-bold text-lg mb-2">
