@@ -13,6 +13,7 @@ import ImageGeneratorForm from './components/ImageGeneratorForm';
 import ResultsViewer from './components/ResultsViewer';
 import PromptExtractor from './components/PromptExtractor';
 import GenerationHistory from './components/GenerationHistory';
+import MetadataViewer from './components/MetadataViewer';
 
 // To inform TypeScript about the global piexif object from the CDN script
 declare const piexif: any;
@@ -400,17 +401,14 @@ const App: React.FC = () => {
                     <div className="bg-slate-900 rounded-lg p-6 sm:p-8">
                       <PromptExtractor 
                           onFileSelect={handleFileSelect}
-                          onUsePrompt={handleUseExtractedPrompt}
                           onDescribeImage={handleDescribeImage}
                       />
                     </div>
                   </div>
               </div>
               {/* --- Right Column (EXTRACT VIEW) --- */}
-              <div className="hidden lg:block lg:col-span-3 mt-8 lg:mt-0">
-                  <div className="h-full flex items-center justify-center text-center text-slate-500 bg-slate-900/70 rounded-xl p-8">
-                     <p>Upload an image on the left to view its preview and extracted metadata here.</p>
-                  </div>
+              <div className="hidden lg:block lg:col-span-3 mt-8 lg:mt-0 self-start">
+                  <MetadataViewer onUsePrompt={handleUseExtractedPrompt} />
               </div>
             </>
           )}
