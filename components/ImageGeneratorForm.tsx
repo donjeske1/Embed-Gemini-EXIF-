@@ -3,6 +3,7 @@ import type { AspectRatio, ImageModel } from '../types';
 import { useAppContext } from '../state/AppContext';
 import { enhancePromptStream } from '../services/geminiService';
 import LoaderIcon from './ui/LoaderIcon';
+import Tooltip from './ui/Tooltip';
 
 const aspectRatios: AspectRatio[] = ['1:1', '16:9', '9:16', '4:3', '3:4'];
 
@@ -141,12 +142,16 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
         <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Model</label>
             <div className="flex rounded-lg shadow-sm">
-                <button type="button" onClick={() => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'model', value: 'gemini-2.5-flash-image' } })} className={`px-4 py-2 text-sm font-medium rounded-l-lg w-full transition-colors duration-200 ${!isImagen ? 'bg-indigo-600 text-white z-10 ring-1 ring-indigo-500' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}>
-                    Nano Banana <span className="text-xs opacity-75">(Fast, Edits)</span>
-                </button>
-                <button type="button" onClick={() => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'model', value: 'imagen-4.0-generate-001' } })} className={`-ml-px px-4 py-2 text-sm font-medium rounded-r-lg w-full transition-colors duration-200 ${isImagen ? 'bg-indigo-600 text-white z-10 ring-1 ring-indigo-500' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}>
-                    Imagen <span className="text-xs opacity-75">(High Quality)</span>
-                </button>
+                <Tooltip tip="Nano Banana: Fast generation, supports image editing and reference images." className="w-full">
+                    <button type="button" onClick={() => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'model', value: 'gemini-2.5-flash-image' } })} className={`px-4 py-2 text-sm font-medium rounded-l-lg w-full transition-colors duration-200 ${!isImagen ? 'bg-indigo-600 text-white z-10 ring-1 ring-indigo-500' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}>
+                        Nano Banana <span className="text-xs opacity-75">(Fast, Edits)</span>
+                    </button>
+                </Tooltip>
+                <Tooltip tip="Imagen: Slower, but produces higher quality, more photorealistic images." className="w-full">
+                    <button type="button" onClick={() => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'model', value: 'imagen-4.0-generate-001' } })} className={`-ml-px px-4 py-2 text-sm font-medium rounded-r-lg w-full transition-colors duration-200 ${isImagen ? 'bg-indigo-600 text-white z-10 ring-1 ring-indigo-500' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}>
+                        Imagen <span className="text-xs opacity-75">(High Quality)</span>
+                    </button>
+                </Tooltip>
             </div>
         </div>
 
@@ -154,14 +159,16 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
           <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Prompt Mode</label>
               <div className="flex rounded-lg shadow-sm">
-                  {/* FIX: Dispatch action to update global promptMode state. */}
-                  <button type="button" onClick={() => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'promptMode', value: 'text' } })} className={`px-4 py-2 text-sm font-medium rounded-l-lg w-full transition-colors duration-200 ${promptMode === 'text' ? 'bg-indigo-600 text-white z-10 ring-1 ring-indigo-500' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}>
-                      Freeform Text
-                  </button>
-                  {/* FIX: Dispatch action to update global promptMode state. */}
-                  <button type="button" onClick={() => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'promptMode', value: 'json' } })} className={`-ml-px px-4 py-2 text-sm font-medium rounded-r-lg w-full transition-colors duration-200 ${promptMode === 'json' ? 'bg-indigo-600 text-white z-10 ring-1 ring-indigo-500' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}>
-                      JSON
-                  </button>
+                  <Tooltip tip="Write a standard, descriptive prompt." className="w-full">
+                    <button type="button" onClick={() => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'promptMode', value: 'text' } })} className={`px-4 py-2 text-sm font-medium rounded-l-lg w-full transition-colors duration-200 ${promptMode === 'text' ? 'bg-indigo-600 text-white z-10 ring-1 ring-indigo-500' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}>
+                        Freeform Text
+                    </button>
+                  </Tooltip>
+                   <Tooltip tip="Provide a JSON object for more structured control over the generation." className="w-full">
+                    <button type="button" onClick={() => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'promptMode', value: 'json' } })} className={`-ml-px px-4 py-2 text-sm font-medium rounded-r-lg w-full transition-colors duration-200 ${promptMode === 'json' ? 'bg-indigo-600 text-white z-10 ring-1 ring-indigo-500' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}>
+                        JSON
+                    </button>
+                  </Tooltip>
               </div>
           </div>
         )}
@@ -175,21 +182,25 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
 
         {promptMode === 'text' && (
              <div className="pt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button 
-                    type="button" 
-                    onClick={handleEnhancePrompt} 
-                    disabled={isEnhancing || isLoading || !prompt.trim()}
-                    className="w-full flex justify-center items-center gap-2 bg-violet-700 hover:bg-violet-600 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
-                >
-                    {isEnhancing ? <><LoaderIcon /> Enhancing...</> : '✨ Enhance Prompt'}
-                </button>
-                <button 
-                    type="button" 
-                    onClick={() => setShowExamples(!showExamples)} 
-                    className="w-full flex justify-center items-center gap-2 bg-slate-600 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
-                >
-                    💡 {showExamples ? 'Hide Examples' : 'Show Examples'}
-                </button>
+                <Tooltip tip="Use AI to generate three more detailed and creative versions of your current prompt." className="w-full">
+                    <button 
+                        type="button" 
+                        onClick={handleEnhancePrompt} 
+                        disabled={isEnhancing || isLoading || !prompt.trim()}
+                        className="w-full flex justify-center items-center gap-2 bg-violet-700 hover:bg-violet-600 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
+                    >
+                        {isEnhancing ? <><LoaderIcon /> Enhancing...</> : '✨ Enhance Prompt'}
+                    </button>
+                </Tooltip>
+                 <Tooltip tip="See a list of sample prompts to get inspired." className="w-full">
+                    <button 
+                        type="button" 
+                        onClick={() => setShowExamples(!showExamples)} 
+                        className="w-full flex justify-center items-center gap-2 bg-slate-600 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
+                    >
+                        💡 {showExamples ? 'Hide Examples' : 'Show Examples'}
+                    </button>
+                </Tooltip>
             </div>
         )}
 
@@ -329,28 +340,30 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
           </div>
         )}
         {isImagen && <p className="text-xs text-slate-500">Reference images are not supported by the Imagen model.</p>}
-
-        <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-800/50 p-3 rounded-lg my-4">
-            <div className="flex items-center gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500 dark:text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
-                <div>
-                    <label htmlFor="web-search-toggle" className="font-medium text-slate-800 dark:text-slate-200">
-                        Ground with Web Search
-                    </label>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">For prompts about recent or specific topics.</p>
+        
+        <Tooltip tip="Allows the model to use Google Search to improve prompts about specific or recent topics.">
+            <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-800/50 p-3 rounded-lg my-4">
+                <div className="flex items-center gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500 dark:text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
+                    <div>
+                        <label htmlFor="web-search-toggle" className="font-medium text-slate-800 dark:text-slate-200">
+                            Ground with Web Search
+                        </label>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">For prompts about recent or specific topics.</p>
+                    </div>
                 </div>
+                <button
+                    type="button"
+                    role="switch"
+                    aria-checked={useWebSearch}
+                    onClick={() => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'useWebSearch', value: !useWebSearch } })}
+                    id="web-search-toggle"
+                    className={`${useWebSearch ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900`}
+                >
+                    <span className={`${useWebSearch ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
+                </button>
             </div>
-            <button
-                type="button"
-                role="switch"
-                aria-checked={useWebSearch}
-                onClick={() => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'useWebSearch', value: !useWebSearch } })}
-                id="web-search-toggle"
-                className={`${useWebSearch ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900`}
-            >
-                <span className={`${useWebSearch ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
-            </button>
-        </div>
+        </Tooltip>
 
         <button type="submit" disabled={isLoading} className="w-full flex justify-center items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200">
           {isLoading ? <><LoaderIcon /> Generating...</> : 'Generate Image'}

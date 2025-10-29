@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../state/AppContext';
+import Tooltip from './ui/Tooltip';
 
 const Settings: React.FC = () => {
     const { state, dispatch } = useAppContext();
@@ -42,16 +43,18 @@ const Settings: React.FC = () => {
                         <label htmlFor="night-mode-toggle" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                             Night Mode
                         </label>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked={isNightMode}
-                            onClick={toggleNightMode}
-                            id="night-mode-toggle"
-                            className={`${isNightMode ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800`}
-                        >
-                            <span className={`${isNightMode ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
-                        </button>
+                        <Tooltip tip={isNightMode ? 'Switch to Light Mode' : 'Switch to Night Mode'} position="left">
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={isNightMode}
+                                onClick={toggleNightMode}
+                                id="night-mode-toggle"
+                                className={`${isNightMode ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800`}
+                            >
+                                <span className={`${isNightMode ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
+                            </button>
+                        </Tooltip>
                     </div>
                 </div>
             )}

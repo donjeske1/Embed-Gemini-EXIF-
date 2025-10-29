@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useAppContext } from '../state/AppContext';
 import LoaderIcon from './ui/LoaderIcon';
+import Tooltip from './ui/Tooltip';
 
 interface PromptExtractorProps {
   onFileSelect: (file: File) => void;
@@ -100,14 +101,16 @@ const PromptExtractor: React.FC<PromptExtractorProps> = ({ onFileSelect, onDescr
       )}
        {imagePreview && !extractedMetadata && (
         <div className="pt-2">
-            <button
-                type="button"
-                onClick={onDescribeImage}
-                disabled={isDescribing}
-                className="w-full flex justify-center items-center gap-2 bg-teal-700 hover:bg-teal-600 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
-            >
-                {isDescribing ? <><LoaderIcon /> Describing Image...</> : '🖼️ Describe Image with AI'}
-            </button>
+            <Tooltip tip="If no metadata is found, use AI to analyze the image and generate a descriptive prompt for you.">
+                <button
+                    type="button"
+                    onClick={onDescribeImage}
+                    disabled={isDescribing}
+                    className="w-full flex justify-center items-center gap-2 bg-teal-700 hover:bg-teal-600 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+                >
+                    {isDescribing ? <><LoaderIcon /> Describing Image...</> : '🖼️ Describe Image with AI'}
+                </button>
+            </Tooltip>
             <p className="text-xs text-slate-500 mt-2 text-center">No metadata found. Let AI generate a prompt from the image.</p>
         </div>
        )}

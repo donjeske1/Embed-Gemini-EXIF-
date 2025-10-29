@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext, HistoryItem } from '../state/AppContext';
+import Tooltip from './ui/Tooltip';
 
 interface GenerationHistoryProps {
   onSelectItem: (item: HistoryItem) => void;
@@ -56,12 +57,16 @@ const GenerationHistory: React.FC<GenerationHistoryProps> = ({ onSelectItem }) =
                                     {formatJsonDisplay(item.metadata.prompt)}
                                 </p>
                                 <div className="mt-3 flex items-center gap-3">
-                                    <button onClick={() => onSelectItem(item)} className="text-sm bg-indigo-700 hover:bg-indigo-600 text-white font-semibold py-1 px-3 rounded-md transition-colors duration-200">
-                                        Use
-                                    </button>
-                                    <a href={item.images[0]} download={`generated-image-${item.id}-0.jpg`} className="text-sm bg-slate-500 hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-semibold py-1 px-3 rounded-md transition-colors duration-200">
-                                        Download
-                                    </a>
+                                    <Tooltip tip="Load this generation's settings and results back into the main interface.">
+                                        <button onClick={() => onSelectItem(item)} className="text-sm bg-indigo-700 hover:bg-indigo-600 text-white font-semibold py-1 px-3 rounded-md transition-colors duration-200">
+                                            Use
+                                        </button>
+                                    </Tooltip>
+                                    <Tooltip tip="Download the first image of this batch with its embedded metadata.">
+                                        <a href={item.images[0]} download={`generated-image-${item.id}-0.jpg`} className="text-sm bg-slate-500 hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-semibold py-1 px-3 rounded-md transition-colors duration-200">
+                                            Download
+                                        </a>
+                                    </Tooltip>
                                 </div>
                             </div>
                         </li>

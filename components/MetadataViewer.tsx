@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAppContext } from '../state/AppContext';
+import Tooltip from './ui/Tooltip';
 
 const formatJsonDisplay = (jsonString: string | null): string => {
     if (!jsonString) return '';
@@ -104,12 +105,16 @@ const MetadataViewer: React.FC<MetadataViewerProps> = ({ onUsePrompt }) => {
                                 )}
                             </div>
                             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 pt-2">
-                                <button onClick={onToggleEdit} className="flex-1 bg-slate-500 hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
-                                  {isEditingPrompt ? 'Done Editing' : 'Edit Metadata'}
-                                </button>
-                                <button onClick={onUsePrompt} disabled={!isPromptValid} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
-                                  Use this Metadata
-                                </button>
+                                <Tooltip tip="Manually edit the extracted prompt and other metadata." className="flex-1">
+                                    <button onClick={onToggleEdit} className="w-full bg-slate-500 hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
+                                      {isEditingPrompt ? 'Done Editing' : 'Edit Metadata'}
+                                    </button>
+                                </Tooltip>
+                                <Tooltip tip="Switch to the 'Generate' tab and populate the form with this image's metadata." className="flex-1">
+                                    <button onClick={onUsePrompt} disabled={!isPromptValid} className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
+                                      Use this Metadata
+                                    </button>
+                                </Tooltip>
                             </div>
                         </div>
                     )}
