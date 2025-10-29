@@ -106,7 +106,7 @@ const MetadataViewer: React.FC<MetadataViewerProps> = ({ onUsePrompt }) => {
                             </div>
                             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 pt-2">
                                 <Tooltip tip="Manually edit the extracted prompt and other metadata." className="flex-1">
-                                    <button onClick={onToggleEdit} className="w-full bg-slate-500 hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
+                                    <button onClick={onToggleEdit} className="w-full bg-green-700 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
                                       {isEditingPrompt ? 'Done Editing' : 'Edit Metadata'}
                                     </button>
                                 </Tooltip>

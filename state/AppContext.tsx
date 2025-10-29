@@ -204,7 +204,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
     case 'EXTRACTION_RESULT':
         return { ...state, imagePreview: action.payload.dataUrl, extractedMetadata: action.payload.metadata, extractionMessage: action.payload.message, isPromptValid: action.payload.isValid };
     case 'DESCRIPTION_SUCCESS':
-        return { ...state, extractedMetadata: action.payload.metadata, isPromptValid: true, extractionMessage: action.payload.message, isEditingPrompt: true };
+        return { ...state, extractedMetadata: action.payload.metadata, isPromptValid: true, extractionMessage: action.payload.message, isEditingPrompt: false };
     case 'SET_EXTRACTED_METADATA':
         return { ...state, extractedMetadata: action.payload };
     case 'SET_IS_EDITING_PROMPT':
@@ -212,13 +212,25 @@ const appReducer = (state: AppState, action: Action): AppState => {
     case 'VALIDATE_EDITED_PROMPT': {
         if (!state.extractedMetadata) return state;
         let isValid = false;
-        try {
-            if (state.extractedMetadata.model === 'gemini-2.5-flash-image') {
-                JSON.parse(state.extractedMetadata.prompt);
+        let message = '';
+        const { model, prompt, promptMode } = state.extractedMetadata;
+
+        if (model === 'gemini-2.5-flash-image' && promptMode === 'json') {
+            try {
+                JSON.parse(prompt);
+                isValid = true;
+                message = "The edited JSON prompt is valid.";
+            } catch (e) {
+                isValid = false;
+                message = "The edited prompt is not valid JSON.";
             }
-            isValid = true;
-        } catch { isValid = false; }
-        return { ...state, isPromptValid: isValid, extractionMessage: isValid ? "The edited prompt is valid." : "The edited prompt is not valid JSON." };
+        } else {
+            // For all text prompts
+            isValid = prompt.trim().length > 0;
+            message = isValid ? "The edited prompt is valid." : "Prompt cannot be empty.";
+        }
+        
+        return { ...state, isPromptValid: isValid, extractionMessage: message };
     }
     case 'SET_EXAMPLE_PROMPTS': {
         const { prompts, error } = action.payload;
