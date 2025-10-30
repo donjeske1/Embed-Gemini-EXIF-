@@ -39,6 +39,8 @@ const GenerationHistory: React.FC<GenerationHistoryProps> = ({ onSelectItem }) =
                 <ul className="space-y-4">
                     {history.map((item) => {
                         const downloadFilename = `${item.metadata.filenameSlug || `generated-image-${item.id}`}.jpg`;
+                        const modelDisplayName = item.metadata.model === 'imagen-4.0-generate-001' ? 'Imagen' : 'Nano Banana';
+                        const isImagen = modelDisplayName === 'Imagen';
                         return (
                             <li key={item.id} className="bg-slate-100 dark:bg-slate-800/50 p-4 rounded-xl flex items-start gap-4">
                                 <div className="relative flex-shrink-0">
@@ -50,6 +52,9 @@ const GenerationHistory: React.FC<GenerationHistoryProps> = ({ onSelectItem }) =
                                     )}
                                 </div>
                                 <div className="flex-grow min-w-0">
+                                    <span className={`inline-block mb-1 px-2 py-0.5 text-xs font-semibold rounded-full ${isImagen ? 'bg-sky-200 text-sky-800 dark:bg-sky-900 dark:text-sky-300' : 'bg-violet-200 text-violet-800 dark:bg-violet-900 dark:text-violet-300'}`}>
+                                        {modelDisplayName}
+                                    </span>
                                     <p className="text-xs text-slate-600 dark:text-slate-400 font-mono whitespace-pre-wrap break-words line-clamp-3" title={item.metadata.prompt}>
                                         {item.metadata.originalPrompt && (
                                             <span className="block text-slate-500 text-[10px] italic" title={`Original: ${item.metadata.originalPrompt}`}>
