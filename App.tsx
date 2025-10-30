@@ -6,6 +6,7 @@ import {
     generateGroundedPromptStream,
     generateExamplePromptsStream,
     describeImageStream,
+    summarizePromptForFilename,
     ReferenceImage 
 } from './services/geminiService';
 import { useAppContext, GenerationMetadata, HistoryItem } from './state/AppContext';
@@ -137,12 +138,15 @@ const App: React.FC = () => {
             dispatch({ type: 'SET_ERROR', payload: null });
         }
         
+        const filenameSlug = await summarizePromptForFilename(finalPromptForApi);
+
         const metadataToEmbed: GenerationMetadata = {
             model: currentModel,
             prompt: finalPromptForApi,
             originalPrompt: originalPromptForMetadata,
             aspectRatio: currentModel === 'imagen-4.0-generate-001' ? currentAspectRatio : undefined,
             promptMode: state.promptMode,
+            filenameSlug: filenameSlug,
         };
         
         const imagePartsForApi: ReferenceImage[] = state.referenceImages.map(dataUrl => {
@@ -183,11 +187,14 @@ const App: React.FC = () => {
     try {
         const generationPromises = suggestions.map(async (suggestionPrompt) => {
             const isImagen = model === 'imagen-4.0-generate-001';
+            const filenameSlug = await summarizePromptForFilename(suggestionPrompt);
+
             const metadataToEmbed: GenerationMetadata = {
                 model: model,
                 prompt: suggestionPrompt,
                 aspectRatio: isImagen ? state.aspectRatio : undefined,
                 promptMode: 'text',
+                filenameSlug: filenameSlug,
             };
 
             const base64Images = await generateImagesFromPrompt(suggestionPrompt, model, {
@@ -246,7 +253,8 @@ const App: React.FC = () => {
         const refinedBase64 = await refineImage(refinementPrompt, referenceImage);
 
         const newPromptForMetadata = `${activeHistoryItem.metadata.prompt}\n\n---\n\nRefinement: ${refinementPrompt}`;
-        const newMetadata: GenerationMetadata = { ...activeHistoryItem.metadata, prompt: newPromptForMetadata };
+        const filenameSlug = await summarizePromptForFilename(newPromptForMetadata);
+        const newMetadata: GenerationMetadata = { ...activeHistoryItem.metadata, prompt: newPromptForMetadata, filenameSlug };
 
         const refinedImageWithMetadata = await embedMetadataInImage(refinedBase64, 'image/png', newMetadata);
         
@@ -340,8 +348,9 @@ const App: React.FC = () => {
         for await (const chunk of stream) {
             description += chunk;
         }
-
-        const newMetadata: GenerationMetadata = { model: 'gemini-2.5-flash-image', prompt: description, promptMode: 'text' };
+        
+        const filenameSlug = await summarizePromptForFilename(description);
+        const newMetadata: GenerationMetadata = { model: 'gemini-2.5-flash-image', prompt: description, promptMode: 'text', filenameSlug };
         dispatch({ type: 'DESCRIPTION_SUCCESS', payload: { metadata: newMetadata, message: "AI-generated description created!" } });
     } catch (e: any) {
         dispatch({ type: 'SET_ERROR', payload: e.message || "Failed to generate description." });

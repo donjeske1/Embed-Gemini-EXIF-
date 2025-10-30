@@ -18,6 +18,42 @@ interface GenerationConfig {
     numberOfImages?: number;
 }
 
+// Helper to slugify a string for a filename
+const slugify = (text: string): string => {
+    return text
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, '-')       // Replace spaces with -
+        .replace(/[^\w\-]+/g, '')   // Remove all non-word chars
+        .replace(/\-\-+/g, '-')     // Replace multiple - with single -
+        .substring(0, 50);          // Truncate to 50 chars
+};
+
+
+export const summarizePromptForFilename = async (prompt: string): Promise<string> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Summarize the following image prompt into 3-5 descriptive words, separated by hyphens. The output must be lowercase and contain only letters and hyphens. Example: "A photorealistic image of an astronaut on Mars" becomes "astronaut-on-mars".\n\nPrompt: "${prompt}"`,
+            config: {
+                systemInstruction: "You are an expert at creating concise, file-name-friendly summaries. Your output must be lowercase, hyphen-separated, and contain no special characters or file extensions.",
+                maxOutputTokens: 20,
+                thinkingConfig: { thinkingBudget: 0 } // Disable thinking for this simple task
+            }
+        });
+
+        const summary = response.text.trim();
+        // Final cleanup to ensure it's a valid slug
+        return slugify(summary);
+    } catch (error) {
+        console.warn("AI filename summarization failed, using fallback.", error);
+        // Fallback to simple truncation and slugification
+        return slugify(prompt);
+    }
+};
+
+
 // Helper for streaming JSON-based content
 const streamAndParseJson = async (
     model: string,

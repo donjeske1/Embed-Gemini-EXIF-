@@ -12,6 +12,7 @@ export interface GenerationMetadata {
   originalPrompt?: string;
   aspectRatio?: AspectRatio;
   promptMode?: PromptMode;
+  filenameSlug?: string;
 }
 
 export interface HistoryItem {

@@ -9,7 +9,7 @@ interface ResultsViewerProps {
 
 const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine }) => {
     const { state, dispatch } = useAppContext();
-    const { generatedImages, selectedImageIndex, isLoading, isRefining, refinementPrompt, model } = state;
+    const { generatedImages, selectedImageIndex, isLoading, isRefining, refinementPrompt, model, generationHistory, activeHistoryId, activeBatchHistoryIds } = state;
 
     const isImagen = model === 'imagen-4.0-generate-001';
 
@@ -17,12 +17,18 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine }) => {
         return null;
     }
 
+    const getActiveHistoryItem = (index: number) => {
+        const historyId = activeBatchHistoryIds ? activeBatchHistoryIds[index] : activeHistoryId;
+        return generationHistory.find(h => h.id === historyId);
+    };
+
     const handleDownloadAll = () => {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         generatedImages.forEach((imgSrc, index) => {
+            const activeItem = getActiveHistoryItem(index);
+            const filename = activeItem?.metadata.filenameSlug || `generated-image-${activeItem?.id || index}`;
             const link = document.createElement('a');
             link.href = imgSrc;
-            link.download = `generated-image-${timestamp}-${index + 1}.jpg`;
+            link.download = `${filename}.jpg`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -30,6 +36,8 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine }) => {
     };
 
     const selectedImageUrl = generatedImages[selectedImageIndex];
+    const selectedHistoryItem = getActiveHistoryItem(selectedImageIndex);
+    const selectedImageFilename = `${selectedHistoryItem?.metadata.filenameSlug || 'generated-image-with-prompt'}.jpg`;
 
     return (
         <div className="space-y-4">
@@ -54,7 +62,7 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine }) => {
                 <div className="space-y-4 pt-4">
                     <h3 className="text-lg font-semibold">Preview:</h3>
                     <img src={selectedImageUrl} alt="Selected generated image" className="rounded-xl shadow-lg max-w-full mx-auto" />
-                    <a href={selectedImageUrl} download="generated-image-with-prompt.jpg" className="block w-full text-center bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200">
+                    <a href={selectedImageUrl} download={selectedImageFilename} className="block w-full text-center bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200">
                         Download Selected Image with Metadata
                     </a>
                 </div>
