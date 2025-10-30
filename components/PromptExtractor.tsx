@@ -9,7 +9,7 @@ interface PromptExtractorProps {
 }
 
 const PromptExtractor: React.FC<PromptExtractorProps> = ({ onFileSelect, onDescribeImage }) => {
-  const { state } = useAppContext();
+  const { state, dispatch } = useAppContext();
   const { 
     extractedMetadata, imagePreview, extractionMessage, isPromptValid, isDescribing
   } = state;
@@ -18,10 +18,16 @@ const PromptExtractor: React.FC<PromptExtractorProps> = ({ onFileSelect, onDescr
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processFile = useCallback((file: File | null) => {
-    if (file && file.type.match('image.*')) {
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/png'];
+    if (allowedTypes.includes(file.type)) {
+      dispatch({ type: 'SET_ERROR', payload: null }); // Clear previous validation error
       onFileSelect(file);
+    } else {
+      dispatch({ type: 'SET_ERROR', payload: 'Invalid file type. Please upload a JPEG or PNG image.' });
     }
-  }, [onFileSelect]);
+  }, [onFileSelect, dispatch]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {

@@ -47,7 +47,7 @@ const GenerationHistory: React.FC<GenerationHistoryProps> = ({ onSelectItem }) =
                                     </span>
                                 )}
                             </div>
-                            <div className="flex-grow overflow-hidden">
+                            <div className="flex-grow min-w-0">
                                 <p className="text-xs text-slate-600 dark:text-slate-400 font-mono whitespace-pre-wrap break-words line-clamp-3" title={item.metadata.prompt}>
                                     {item.metadata.originalPrompt && (
                                         <span className="block text-slate-500 text-[10px] italic" title={`Original: ${item.metadata.originalPrompt}`}>
