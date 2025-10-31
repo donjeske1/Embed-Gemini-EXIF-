@@ -51,11 +51,30 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine }) => {
                 )}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {generatedImages.map((imgSrc, index) => (
-                    <button key={index} onClick={() => dispatch({ type: 'SET_SELECTED_IMAGE_INDEX', payload: index })} className={`rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 focus:ring-indigo-500 ${selectedImageIndex === index ? 'ring-2 ring-indigo-500' : 'ring-1 ring-slate-300 dark:ring-slate-700 hover:ring-indigo-500 dark:hover:ring-indigo-600'}`}>
-                        <img src={imgSrc} alt={`Generated ${index + 1}`} className="w-full h-full object-cover aspect-square" />
-                    </button>
-                ))}
+                {generatedImages.map((imgSrc, index) => {
+                    const activeItem = getActiveHistoryItem(index);
+                    const filename = `${activeItem?.metadata.filenameSlug || `generated-image-${activeItem?.id || index}`}.jpg`;
+                    return (
+                        <div key={index} className="relative group">
+                             <button onClick={() => dispatch({ type: 'SET_SELECTED_IMAGE_INDEX', payload: index })} className={`w-full block rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 focus:ring-indigo-500 ${selectedImageIndex === index ? 'ring-2 ring-indigo-500' : 'ring-1 ring-slate-300 dark:ring-slate-700 hover:ring-indigo-500 dark:hover:ring-indigo-600'}`}>
+                                <img src={imgSrc} alt={`Generated ${index + 1}`} className="w-full h-full object-cover aspect-square" />
+                            </button>
+                             <Tooltip tip="Download with metadata" position="top">
+                                <a
+                                    href={imgSrc}
+                                    download={filename}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="absolute bottom-2 right-2 bg-black/60 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-black/80 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black/50 focus:ring-white"
+                                    aria-label={`Download image ${index + 1}`}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
+                                </a>
+                            </Tooltip>
+                        </div>
+                    );
+                })}
             </div>
 
             {selectedImageUrl && (
