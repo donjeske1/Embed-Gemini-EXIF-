@@ -114,6 +114,7 @@ export type Action =
   | { type: 'SET_IS_EDITING_PROMPT'; payload: boolean }
   | { type: 'VALIDATE_EDITED_PROMPT' }
   | { type: 'TOGGLE_NIGHT_MODE' }
+  | { type: 'CLEAR_HISTORY' }
   | { type: 'SET_EXAMPLE_PROMPTS'; payload: { prompts: string[]; error?: string } };
 
 
@@ -210,6 +211,15 @@ const appReducer = (state: AppState, action: Action): AppState => {
         return { ...state, extractedMetadata: action.payload };
     case 'SET_IS_EDITING_PROMPT':
         return { ...state, isEditingPrompt: action.payload };
+    case 'CLEAR_HISTORY':
+        return {
+            ...state,
+            generationHistory: [],
+            generatedImages: null,
+            activeHistoryId: null,
+            activeBatchHistoryIds: null,
+            selectedImageIndex: 0,
+        };
     case 'VALIDATE_EDITED_PROMPT': {
         if (!state.extractedMetadata) return state;
         let isValid = false;
