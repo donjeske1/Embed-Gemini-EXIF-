@@ -1,5 +1,5 @@
 {
-  "name": "copy-of-gemini-embed-prompt-in-exif",
+  "name": "gemini-embed-prompt-in-exif",
   "private": true,
   "version": "0.0.0",
   "type": "module",

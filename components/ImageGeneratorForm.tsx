@@ -7,41 +7,6 @@ import Tooltip from './ui/Tooltip';
 
 const aspectRatios: AspectRatio[] = ['1:1', '16:9', '9:16', '4:3', '3:4'];
 
-const jsonExamplePrompts = [
-  {
-    name: "Simple Text",
-    json: JSON.stringify([{ text: "A cute red panda, highly detailed, fantasy art" }])
-  },
-  {
-    name: "With Negative Prompt",
-    json: JSON.stringify([
-      { text: "A photorealistic portrait of an old sailor with a weathered face" },
-      { text: "Negative prompt: cartoon, illustration, watermark, text" }
-    ])
-  },
-  {
-    name: "Cinematic Style",
-    json: JSON.stringify([
-      { text: "A knight in shining armor standing on a misty mountain peak at sunrise" },
-      { control: { style: "cinematic" } }
-    ])
-  },
-  {
-    name: "Watercolor Painting",
-    json: JSON.stringify([
-      { text: "A vibrant field of sunflowers under a dramatic sunset sky" },
-      { control: { style: "watercolor" } }
-    ])
-  },
-  {
-    name: "Low Poly 3D",
-    json: JSON.stringify([
-      { text: "A charming isometric island floating in the sky" },
-      { control: { style: "low-poly" } }
-    ])
-  },
-];
-
 interface ImageGeneratorFormProps {
     onGenerate: (prompt: string, model: ImageModel, aspectRatio: AspectRatio, numberOfImages: number) => void;
     onGenerateAllSuggestions: (prompts: string[]) => void;
@@ -63,7 +28,6 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
   const [showExamples, setShowExamples] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [showAdvancedJson, setShowAdvancedJson] = useState(false);
-  const [showJsonExamples, setShowJsonExamples] = useState(false);
 
   const isJsonBuilderVisible = !isImagen && promptMode === 'json';
 
@@ -270,41 +234,6 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
                   />
                 </div>
               </div>
-            )}
-
-            <div className="pt-1">
-                <Tooltip tip="See a list of sample JSON prompts to get inspired." className="w-full">
-                    <button
-                        type="button"
-                        onClick={() => setShowJsonExamples(!showJsonExamples)}
-                        className="w-full flex justify-center items-center gap-2 bg-slate-600 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
-                    >
-                        💡 {showJsonExamples ? 'Hide JSON Examples' : 'Show JSON Examples'}
-                    </button>
-                </Tooltip>
-            </div>
-
-            {showJsonExamples && (
-                <div className="space-y-3 p-4 bg-slate-100 dark:bg-slate-800/60 rounded-lg animate-fade-in">
-                    <div className="flex justify-between items-center">
-                        <h4 className="font-semibold text-slate-800 dark:text-slate-200">JSON Example Prompts:</h4>
-                        <button type="button" onClick={() => setShowJsonExamples(false)} className="text-xs text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white" aria-label="Close examples">&times; Close</button>
-                    </div>
-                    <ul className="space-y-2">
-                        {jsonExamplePrompts.map((example, index) => (
-                            <li key={index}>
-                                <button
-                                    type="button"
-                                    onClick={() => onPromptChange(example.json)}
-                                    className="w-full text-left p-3 bg-slate-200 dark:bg-slate-700/50 hover:bg-indigo-100 dark:hover:bg-indigo-600/50 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors duration-200"
-                                >
-                                    <span className="font-bold block">{example.name}</span>
-                                    <pre className="text-xs whitespace-pre-wrap mt-1 opacity-80"><code>{JSON.stringify(JSON.parse(example.json), null, 2)}</code></pre>
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
             )}
           </div>
         ) : (

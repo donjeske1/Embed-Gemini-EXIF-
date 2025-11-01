@@ -2,7 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../state/AppContext';
 import Tooltip from './ui/Tooltip';
 
-const Settings: React.FC = () => {
+interface SettingsProps {
+    onCheckKey: () => void;
+}
+
+const Settings: React.FC<SettingsProps> = ({ onCheckKey }) => {
     const { state, dispatch } = useAppContext();
     const { isNightMode } = state;
     const [isOpen, setIsOpen] = useState(false);
@@ -23,6 +27,11 @@ const Settings: React.FC = () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, []);
+    
+    const handleCheckKey = () => {
+        onCheckKey();
+        setIsOpen(false);
+    }
 
     return (
         <div className="relative" ref={menuRef}>
@@ -38,7 +47,7 @@ const Settings: React.FC = () => {
                 </svg>
             </button>
             {isOpen && (
-                <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-2xl ring-1 ring-black ring-opacity-5 z-50 p-2">
+                <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-2xl ring-1 ring-black ring-opacity-5 z-50 p-2 space-y-1">
                     <div className="flex items-center justify-between p-2">
                         <label htmlFor="night-mode-toggle" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                             Night Mode
@@ -56,6 +65,10 @@ const Settings: React.FC = () => {
                             </button>
                         </Tooltip>
                     </div>
+                    <div className="border-t border-slate-200 dark:border-slate-700"></div>
+                     <button onClick={handleCheckKey} className="w-full text-left p-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
+                        Check API Key Status
+                    </button>
                 </div>
             )}
         </div>

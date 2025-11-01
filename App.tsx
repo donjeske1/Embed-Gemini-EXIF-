@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import type { ImageModel, AspectRatio } from './types';
 import { 
     generateImagesFromPrompt, 
@@ -7,18 +7,34 @@ import {
     generateExamplePromptsStream,
     describeImageStream,
     summarizePromptForFilename,
+    generateVideo,
     ReferenceImage 
 } from './services/geminiService';
 import { useAppContext, GenerationMetadata, HistoryItem } from './state/AppContext';
 import ImageGeneratorForm from './components/ImageGeneratorForm';
+import VideoGeneratorForm from './components/VideoGeneratorForm';
 import ResultsViewer from './components/ResultsViewer';
 import PromptExtractor from './components/PromptExtractor';
 import GenerationHistory from './components/GenerationHistory';
 import MetadataViewer from './components/MetadataViewer';
 import Settings from './components/Settings';
+import ApiKeyDialog from './components/ApiKeyDialog';
 
 // To inform TypeScript about the global piexif object from the CDN script
 declare const piexif: any;
+
+// To inform TypeScript about the aistudio global
+// FIX: Define the AIStudio interface to resolve the type conflict for window.aistudio.
+interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+}
+
+declare global {
+    interface Window {
+        aistudio?: AIStudio;
+    }
+}
 
 // Using ImageDescription (270) which is more reliable for string data than UserComment (37510).
 const EXIF_PROMPT_TAG = 270; // Corresponds to piexif.ImageIFD.ImageDescription
@@ -82,7 +98,21 @@ const extractMetadataFromImage = (imageDataUrl: string): GenerationMetadata | st
 
 const App: React.FC = () => {
   const { state, dispatch } = useAppContext();
-  const { view, mobileView, error, model, selectedImageIndex, activeHistoryId, activeBatchHistoryIds, generationHistory, refinementPrompt, generatedImages, isNightMode } = state;
+  const { view, mobileView, error, model, selectedImageIndex, activeHistoryId, activeBatchHistoryIds, generationHistory, refinementPrompt, generatedImages, generatedVideoUrl, isNightMode } = state;
+  const [hasApiKey, setHasApiKey] = useState(false);
+
+  const checkApiKey = useCallback(async () => {
+      if (window.aistudio) {
+        const keyStatus = await window.aistudio.hasSelectedApiKey();
+        setHasApiKey(keyStatus);
+        return keyStatus;
+      }
+      return false; // aistudio not available
+  }, []);
+
+  useEffect(() => {
+    checkApiKey();
+  }, [checkApiKey]);
 
   const fetchExamplePrompts = useCallback(async () => {
       dispatch({ type: 'SET_FETCHING_EXAMPLES', payload: true });
@@ -179,6 +209,28 @@ const App: React.FC = () => {
         dispatch({ type: 'SET_LOADING', payload: false });
     }
   }, [state.useWebSearch, state.referenceImages, dispatch, state.promptMode]);
+  
+  const handleGenerateVideo = useCallback(async (prompt: string, resolution: '720p' | '1080p', aspectRatio: '16:9' | '9:16') => {
+    dispatch({ type: 'START_GENERATION' });
+    
+    try {
+        const videoStream = generateVideo(prompt, resolution, aspectRatio);
+        for await (const result of videoStream) {
+            if (result.videoUrl) {
+                dispatch({ type: 'VIDEO_GENERATION_SUCCESS', payload: result.videoUrl });
+            } else {
+                dispatch({ type: 'SET_LOADING_MESSAGE', payload: result.status });
+            }
+        }
+    } catch (e: any) {
+        if (e.message.includes("re-select your key")) {
+            setHasApiKey(false);
+        }
+        dispatch({ type: 'SET_ERROR', payload: e.message || "An unknown video error occurred." });
+        dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, [dispatch]);
+
 
   const handleGenerateAllSuggestions = useCallback(async (suggestions: string[]) => {
     if (!suggestions || suggestions.length === 0) return;
@@ -359,26 +411,40 @@ const App: React.FC = () => {
     }
   }, [state.imagePreview, dispatch]);
   
-  const hasResults = generatedImages && generatedImages.length > 0;
+  const handleApiKeySelected = () => {
+      setHasApiKey(true);
+      if(view === 'video') {
+          dispatch({ type: 'SET_ERROR', payload: null });
+      }
+  }
+  
+  const hasResults = (generatedImages && generatedImages.length > 0) || generatedVideoUrl;
   const hasHistory = generationHistory.length > 0;
 
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8">
+      <ApiKeyDialog
+        isOpen={view === 'video' && !hasApiKey}
+        onKeySelected={handleApiKeySelected}
+      />
       <div className="w-full max-w-7xl mx-auto">
         <header className="text-center mb-8 relative">
            <div className="absolute top-0 right-0">
-             <Settings />
+             <Settings onCheckKey={checkApiKey} />
            </div>
           <h1 className="text-4xl lg:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">
-            Gemini EXIF Data Embedder
+            Gemini Multimodal Studio
           </h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-2">Generate AI images and manage embedded metadata prompts.</p>
+          <p className="text-slate-600 dark:text-slate-400 mt-2">Generate AI images and videos, and manage embedded metadata prompts.</p>
         </header>
 
         <div className="border-b border-slate-200 dark:border-slate-800 mb-6">
             <nav className="-mb-px flex space-x-6" aria-label="Tabs">
                 <button onClick={() => dispatch({ type: 'SET_VIEW', payload: 'generate' })} className={`${view === 'generate' ? 'border-indigo-500 text-indigo-500 dark:text-indigo-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}>
                     Generate Image
+                </button>
+                 <button onClick={() => dispatch({ type: 'SET_VIEW', payload: 'video' })} className={`${view === 'video' ? 'border-indigo-500 text-indigo-500 dark:text-indigo-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}>
+                    Generate Video
                 </button>
                 <button onClick={() => dispatch({ type: 'SET_VIEW', payload: 'extract' })} className={`${view === 'extract' ? 'border-indigo-500 text-indigo-500 dark:text-indigo-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}>
                     Extract Metadata
@@ -389,32 +455,52 @@ const App: React.FC = () => {
         {error && <div className="text-red-800 dark:text-red-400 bg-red-100 dark:bg-red-900/50 p-3 rounded-lg mb-4">{error}</div>}
 
         <main className="grid grid-cols-1 lg:grid-cols-5 lg:gap-8">
-          {view === 'generate' ? (
-            <>
-              {/* --- Left Column (GENERATE VIEW) --- */}
-              <div className={`lg:col-span-2 lg:sticky lg:top-8 self-start ${mobileView === 'results' ? 'hidden' : 'block'} lg:block`}>
-                <div className="bg-slate-100/70 dark:bg-slate-900/70 rounded-xl shadow-2xl p-1 backdrop-blur-lg">
-                  <div className="bg-white dark:bg-slate-900 rounded-lg p-6 sm:p-8">
-                    <ImageGeneratorForm 
-                      onGenerate={handleGenerate}
-                      onGenerateAllSuggestions={handleGenerateAllSuggestions}
-                      onRefreshExamples={fetchExamplePrompts}
-                    />
+          {view === 'generate' && (
+              <>
+                <div className={`lg:col-span-2 lg:sticky lg:top-8 self-start ${mobileView === 'results' ? 'hidden' : 'block'} lg:block`}>
+                  <div className="bg-slate-100/70 dark:bg-slate-900/70 rounded-xl shadow-2xl p-1 backdrop-blur-lg">
+                    <div className="bg-white dark:bg-slate-900 rounded-lg p-6 sm:p-8">
+                      <ImageGeneratorForm 
+                        onGenerate={handleGenerate}
+                        onGenerateAllSuggestions={handleGenerateAllSuggestions}
+                        onRefreshExamples={fetchExamplePrompts}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-              {/* --- Right Column (GENERATE VIEW) --- */}
-              <div className={`lg:col-span-3 mt-8 lg:mt-0 ${mobileView === 'form' ? 'hidden' : 'block'} lg:block`}>
-                {hasResults && <ResultsViewer onRefine={handleRefine} />}
-                {hasHistory && <GenerationHistory onSelectItem={handleSelectHistoryItem} />}
-                {!hasResults && !hasHistory && (
-                    <div className="h-full flex items-center justify-center text-center text-slate-500 bg-white/70 dark:bg-slate-900/70 rounded-xl p-8 min-h-[400px] lg:min-h-0">
-                       <p>Your generated images and history will appear here.</p>
+                <div className={`lg:col-span-3 mt-8 lg:mt-0 ${mobileView === 'form' ? 'hidden' : 'block'} lg:block`}>
+                  {hasResults && <ResultsViewer onRefine={handleRefine} />}
+                  {hasHistory && <GenerationHistory onSelectItem={handleSelectHistoryItem} />}
+                  {!hasResults && !hasHistory && (
+                      <div className="h-full flex items-center justify-center text-center text-slate-500 bg-white/70 dark:bg-slate-900/70 rounded-xl p-8 min-h-[400px] lg:min-h-0">
+                         <p>Your generated content and history will appear here.</p>
+                      </div>
+                  )}
+                </div>
+              </>
+          )}
+
+          {view === 'video' && (
+              <>
+                <div className={`lg:col-span-2 lg:sticky lg:top-8 self-start ${mobileView === 'results' ? 'hidden' : 'block'} lg:block`}>
+                  <div className="bg-slate-100/70 dark:bg-slate-900/70 rounded-xl shadow-2xl p-1 backdrop-blur-lg">
+                    <div className="bg-white dark:bg-slate-900 rounded-lg p-6 sm:p-8">
+                      <VideoGeneratorForm onGenerate={handleGenerateVideo} />
                     </div>
-                )}
-              </div>
-            </>
-          ) : (
+                  </div>
+                </div>
+                <div className={`lg:col-span-3 mt-8 lg:mt-0 ${mobileView === 'form' ? 'hidden' : 'block'} lg:block`}>
+                  {hasResults && <ResultsViewer onRefine={() => {}} />}
+                  {!hasResults && !hasHistory && (
+                      <div className="h-full flex items-center justify-center text-center text-slate-500 bg-white/70 dark:bg-slate-900/70 rounded-xl p-8 min-h-[400px] lg:min-h-0">
+                         <p>Your generated content and history will appear here.</p>
+                      </div>
+                  )}
+                </div>
+              </>
+          )}
+
+          {view === 'extract' && (
             <>
               {/* --- Left Column (EXTRACT VIEW) --- */}
               <div className="lg:col-span-2 lg:sticky lg:top-8 self-start">
@@ -441,7 +527,7 @@ const App: React.FC = () => {
       </div>
 
        {/* --- Mobile View Toggles --- */}
-       {view === 'generate' && (
+       {(view === 'generate' || view === 'video') && (
           <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 p-2 flex gap-2 z-50">
               <button 
                 onClick={() => dispatch({ type: 'SET_MOBILE_VIEW', payload: 'form' })}

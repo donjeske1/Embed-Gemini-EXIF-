@@ -1,4 +1,4 @@
-import React, { createContext, useReducer, Dispatch, useContext, ReactNode } from 'react';
+import React, { createContext, useReducer, Dispatch, useContext, ReactNode, useEffect } from 'react';
 import type { ImageModel, AspectRatio, View } from '../types';
 
 // --- STATE SHAPE ---
@@ -26,6 +26,7 @@ export interface AppState {
   view: View;
   mobileView: MobileView;
   isLoading: boolean;
+  loadingMessage: string | null;
   isNightMode: boolean;
   isRefining: boolean;
   isDescribing: boolean;
@@ -44,6 +45,7 @@ export interface AppState {
   
   // Results State
   generatedImages: string[] | null;
+  generatedVideoUrl: string | null;
   selectedImageIndex: number;
   refinementPrompt: string;
   
@@ -64,6 +66,7 @@ export const initialState: AppState = {
   view: 'generate',
   mobileView: 'form',
   isLoading: false,
+  loadingMessage: null,
   isNightMode: true,
   isRefining: false,
   isDescribing: false,
@@ -78,6 +81,7 @@ export const initialState: AppState = {
   useWebSearch: false,
   examplePrompts: [],
   generatedImages: null,
+  generatedVideoUrl: null,
   selectedImageIndex: 0,
   refinementPrompt: '',
   generationHistory: [],
@@ -96,6 +100,7 @@ export type Action =
   | { type: 'SET_VIEW'; payload: View }
   | { type: 'SET_MOBILE_VIEW'; payload: MobileView }
   | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_LOADING_MESSAGE', payload: string | null }
   | { type: 'SET_REFINING'; payload: boolean }
   | { type: 'SET_DESCRIBING'; payload: boolean }
   | { type: 'SET_FETCHING_EXAMPLES'; payload: boolean }
@@ -104,6 +109,7 @@ export type Action =
   | { type: 'START_GENERATION' }
   | { type: 'GENERATION_SUCCESS'; payload: { images: string[]; historyItem: HistoryItem } }
   | { type: 'BATCH_GENERATION_SUCCESS'; payload: { images: string[]; historyItems: HistoryItem[] } }
+  | { type: 'VIDEO_GENERATION_SUCCESS', payload: string }
   | { type: 'REFINEMENT_SUCCESS'; payload: { newImage: string; newHistoryItem: HistoryItem } }
   | { type: 'SET_SELECTED_IMAGE_INDEX'; payload: number }
   | { type: 'SET_HISTORY_ITEM'; payload: HistoryItem }
@@ -123,13 +129,15 @@ export type Action =
 const appReducer = (state: AppState, action: Action): AppState => {
   switch (action.type) {
     case 'SET_VIEW':
-      return { ...state, view: action.payload, mobileView: 'form', error: null };
+      return { ...state, view: action.payload, mobileView: 'form', error: null, generatedImages: null, generatedVideoUrl: null };
     case 'SET_MOBILE_VIEW':
       return { ...state, mobileView: action.payload };
     case 'TOGGLE_NIGHT_MODE':
       return { ...state, isNightMode: !state.isNightMode };
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
+    case 'SET_LOADING_MESSAGE':
+        return { ...state, loadingMessage: action.payload };
     case 'SET_REFINING':
         return { ...state, isRefining: action.payload };
     case 'SET_DESCRIBING':
@@ -141,7 +149,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
     case 'SET_FORM_FIELD':
       return { ...state, [action.payload.field]: action.payload.value };
     case 'START_GENERATION':
-        return { ...state, isLoading: true, error: null, generatedImages: null, refinementPrompt: '', activeBatchHistoryIds: null };
+        return { ...state, isLoading: true, error: null, generatedImages: null, generatedVideoUrl: null, refinementPrompt: '', activeBatchHistoryIds: null, loadingMessage: null };
     case 'GENERATION_SUCCESS':
         return {
             ...state,
@@ -167,6 +175,14 @@ const appReducer = (state: AppState, action: Action): AppState => {
             selectedImageIndex: 0,
             mobileView: 'results',
         };
+     case 'VIDEO_GENERATION_SUCCESS':
+        return {
+            ...state,
+            isLoading: false,
+            generatedVideoUrl: action.payload,
+            loadingMessage: null,
+            mobileView: 'results',
+        };
     case 'REFINEMENT_SUCCESS': {
         const { newImage, newHistoryItem } = action.payload;
         const historyIdToUpdate = state.activeBatchHistoryIds
@@ -187,11 +203,13 @@ const appReducer = (state: AppState, action: Action): AppState => {
         const { metadata, images } = action.payload;
         return {
             ...state,
+            view: 'generate',
             model: metadata.model,
             aspectRatio: metadata.aspectRatio || '1:1',
             prompt: metadata.prompt,
             promptMode: metadata.promptMode || 'text',
             generatedImages: images,
+            generatedVideoUrl: null,
             activeHistoryId: action.payload.id,
             activeBatchHistoryIds: null,
             numberOfImages: images.length,
@@ -257,6 +275,61 @@ const appReducer = (state: AppState, action: Action): AppState => {
   }
 };
 
+// --- LOCAL STORAGE UTILS ---
+const LOCALSTORAGE_KEY = 'gemini-exif-app-state';
+
+// Define the shape of the state we want to persist
+type PersistedState = Pick<
+  AppState,
+  | 'isNightMode'
+  | 'prompt'
+  | 'model'
+  | 'promptMode'
+  | 'aspectRatio'
+  | 'numberOfImages'
+  | 'useWebSearch'
+  | 'generationHistory'
+>;
+
+const saveStateToLocalStorage = (state: AppState) => {
+  try {
+    const stateToPersist: PersistedState = {
+        isNightMode: state.isNightMode,
+        prompt: state.prompt,
+        model: state.model,
+        promptMode: state.promptMode,
+        aspectRatio: state.aspectRatio,
+        numberOfImages: state.numberOfImages,
+        useWebSearch: state.useWebSearch,
+        generationHistory: state.generationHistory,
+    };
+    const serializedState = JSON.stringify(stateToPersist);
+    localStorage.setItem(LOCALSTORAGE_KEY, serializedState);
+  } catch (error) {
+    console.warn('Could not save state to localStorage', error);
+  }
+};
+
+const loadStateFromLocalStorage = (): Partial<AppState> | undefined => {
+  try {
+    const serializedState = localStorage.getItem(LOCALSTORAGE_KEY);
+    if (serializedState === null) {
+      return undefined;
+    }
+    // Don't persist results across reloads
+    const parsed = JSON.parse(serializedState);
+    delete parsed.generatedImages;
+    delete parsed.generatedVideoUrl;
+    delete parsed.activeHistoryId;
+    delete parsed.activeBatchHistoryIds;
+    delete parsed.selectedImageIndex;
+    delete parsed.refinementPrompt;
+    return parsed;
+  } catch (error) {
+    console.warn('Could not load state from localStorage', error);
+    return undefined;
+  }
+};
 
 // --- CONTEXT & PROVIDER ---
 
@@ -271,7 +344,12 @@ export const AppContext = createContext<AppContextType>({
 });
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(appReducer, initialState);
+  const persistedState = loadStateFromLocalStorage();
+  const [state, dispatch] = useReducer(appReducer, { ...initialState, ...persistedState });
+
+  useEffect(() => {
+    saveStateToLocalStorage(state);
+  }, [state]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>

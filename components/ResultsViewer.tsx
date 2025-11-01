@@ -9,9 +9,41 @@ interface ResultsViewerProps {
 
 const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine }) => {
     const { state, dispatch } = useAppContext();
-    const { generatedImages, selectedImageIndex, isLoading, isRefining, refinementPrompt, model, generationHistory, activeHistoryId, activeBatchHistoryIds } = state;
+    const { generatedImages, generatedVideoUrl, selectedImageIndex, isLoading, loadingMessage, isRefining, refinementPrompt, model, generationHistory, activeHistoryId, activeBatchHistoryIds } = state;
 
     const isImagen = model === 'imagen-4.0-generate-001';
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center text-center p-8 bg-slate-100/70 dark:bg-slate-900/70 rounded-xl min-h-[400px]">
+                <LoaderIcon />
+                <p className="mt-4 text-lg font-semibold text-slate-700 dark:text-slate-300">Generation in progress...</p>
+                {loadingMessage && <p className="mt-2 text-slate-500 dark:text-slate-400">{loadingMessage}</p>}
+            </div>
+        );
+    }
+    
+    if (!generatedImages && !generatedVideoUrl) {
+        return null;
+    }
+
+    if (generatedVideoUrl) {
+        return (
+            <div className="space-y-4">
+                 <h3 className="text-lg font-semibold">Generated Video:</h3>
+                 <div className="bg-black rounded-xl overflow-hidden shadow-2xl">
+                    <video src={generatedVideoUrl} controls autoPlay muted loop className="w-full max-h-[60vh]"/>
+                 </div>
+                 <a 
+                    href={generatedVideoUrl} 
+                    download="generated-video.mp4" 
+                    className="block w-full text-center bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200"
+                >
+                    Download Video
+                </a>
+            </div>
+        )
+    }
 
     if (!generatedImages || generatedImages.length === 0) {
         return null;

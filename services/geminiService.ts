@@ -1,11 +1,11 @@
 import { GoogleGenAI, Modality, Part, Type } from "@google/genai";
-import type { AspectRatio, ImageModel } from "../types";
+import type { AspectRatio, ImageModel, VideoAspectRatio, VideoResolution } from "../types";
 
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable not set");
-}
+// This will be re-initialized for video calls to use the user-selected key
+let ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+
 
 export interface ReferenceImage {
     mimeType: string;
@@ -33,7 +33,7 @@ const slugify = (text: string): string => {
 
 export const summarizePromptForFilename = async (prompt: string): Promise<string> => {
     try {
-        const response = await ai.models.generateContent({
+        const response = await getAiClient().models.generateContent({
             model: 'gemini-2.5-flash',
             contents: `Summarize the following image prompt into 3-5 descriptive words, separated by hyphens. The output must be lowercase and contain only letters and hyphens. Example: "A photorealistic image of an astronaut on Mars" becomes "astronaut-on-mars".\n\nPrompt: "${prompt}"`,
             config: {
@@ -61,7 +61,7 @@ const streamAndParseJson = async (
     config: any // Simplified for internal use
 ): Promise<any> => {
     // FIX: Await the generateContent call to ensure the response is fully received before parsing.
-    const response = await ai.models.generateContent({ model, contents, config });
+    const response = await getAiClient().models.generateContent({ model, contents, config });
     const jsonText = response.text.trim();
     return JSON.parse(jsonText);
 };
@@ -97,7 +97,7 @@ export const generateExamplePromptsStream = async (): Promise<string[]> => {
 
 export const generateGroundedPromptStream = async function* (userPrompt: string): AsyncGenerator<string> {
     try {
-        const responseStream = await ai.models.generateContentStream({
+        const responseStream = await getAiClient().models.generateContentStream({
             model: 'gemini-2.5-flash',
             contents: `Based on the user's request, use Google Search to find visual details and then write a single, detailed, descriptive prompt for a text-to-image generator. Output ONLY the final prompt text, with no additional commentary, labels, or formatting like markdown. User request: "${userPrompt}"`,
             config: {
@@ -131,7 +131,7 @@ export const enhancePromptStream = async (simplePrompt: string): Promise<string[
                     type: Type.OBJECT,
                     properties: { suggestions: { type: Type.ARRAY, items: { type: Type.STRING, description: "A single, detailed and visually descriptive prompt suggestion." } } }
                 },
-                systemInstruction: "You are a creative assistant for an AI image generator. Your task is to take a user's simple idea and expand it into three distinct, visually descriptive, and detailed prompts. The prompts should be suitable for a text-to-image model. Return the response as a JSON object with a single key 'suggestions' which is an array of strings. Do not include any other text or markdown formatting, just the raw JSON object.",
+                systemInstruction: "You are a creative assistant for an AI image generator. Your task is to take a user's simple idea and expand it into three distinct, visually descriptive, and detailed prompts. Return the response as a JSON object with a single key 'suggestions' which is an array of strings. Do not include any other text or markdown formatting, just the raw JSON object.",
             }
         );
 
@@ -154,7 +154,7 @@ export const describeImageStream = async function* (referenceImage: ReferenceIma
         const imagePart = { inlineData: { mimeType: referenceImage.mimeType, data: referenceImage.data } };
         const textPart = { text: "Describe this image in detail. Your description should be a high-quality prompt that could be used to generate a similar image with an AI text-to-image model. Focus on the visual elements, style, composition, and mood." };
         
-        const responseStream = await ai.models.generateContentStream({
+        const responseStream = await getAiClient().models.generateContentStream({
             model: 'gemini-2.5-flash',
             contents: { parts: [imagePart, textPart] },
         });
@@ -180,7 +180,7 @@ export const refineImage = async (
         const imagePart = { inlineData: { mimeType: referenceImage.mimeType, data: referenceImage.data } };
         const textPart = { text: prompt };
 
-        const response = await ai.models.generateContent({
+        const response = await getAiClient().models.generateContent({
             model: 'gemini-2.5-flash-image',
             contents: { parts: [imagePart, textPart] },
             config: { responseModalities: [Modality.IMAGE] },
@@ -218,9 +218,10 @@ export const generateImagesFromPrompt = async (
 ): Promise<string[]> => {
     try {
         const numImages = config.numberOfImages || 1;
+        const localAi = getAiClient();
 
         if (model === 'imagen-4.0-generate-001') {
-            const response = await ai.models.generateImages({
+            const response = await localAi.models.generateImages({
                 model: 'imagen-4.0-generate-001',
                 prompt: prompt,
                 config: {
@@ -245,7 +246,7 @@ export const generateImagesFromPrompt = async (
                 }
                 parts.push({ text: prompt });
 
-                const response = await ai.models.generateContent({
+                const response = await localAi.models.generateContent({
                     model: 'gemini-2.5-flash-image',
                     contents: { parts },
                     config: { responseModalities: [Modality.IMAGE] },
@@ -278,5 +279,59 @@ export const generateImagesFromPrompt = async (
              throw new Error("Invalid JSON format in prompt for Nano Banana model.");
         }
         throw error;
+    }
+};
+
+export const generateVideo = async function* (
+    prompt: string,
+    resolution: VideoResolution,
+    aspectRatio: VideoAspectRatio,
+): AsyncGenerator<{ status: string; videoUrl?: string }> {
+    try {
+        const localAi = getAiClient();
+        yield { status: 'Initializing video generation...' };
+        
+        let operation = await localAi.models.generateVideos({
+            model: 'veo-3.1-fast-generate-preview',
+            prompt: prompt,
+            config: {
+                numberOfVideos: 1,
+                resolution: resolution,
+                aspectRatio: aspectRatio,
+            }
+        });
+
+        yield { status: 'Model is warming up. This may take a moment...' };
+        
+        while (!operation.done) {
+            await new Promise(resolve => setTimeout(resolve, 10000)); // Poll every 10 seconds
+            yield { status: 'Rendering frames... please wait.' };
+            operation = await localAi.operations.getVideosOperation({ operation: operation });
+        }
+        
+        yield { status: 'Finalizing video...' };
+
+        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+        if (!downloadLink) {
+            throw new Error("Video generation completed, but no download link was found.");
+        }
+        
+        const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+        if (!videoResponse.ok) {
+            throw new Error(`Failed to fetch video file: ${videoResponse.statusText}`);
+        }
+        
+        const videoBlob = await videoResponse.blob();
+        const videoUrl = URL.createObjectURL(videoBlob);
+        
+        yield { status: 'Completed', videoUrl: videoUrl };
+
+    } catch (error) {
+        console.error("Error generating video:", error);
+        const message = error instanceof Error ? error.message : "An unknown error occurred.";
+        if (message.includes("Requested entity was not found.")) {
+             throw new Error("Video generation failed. Your API key may be invalid. Please re-select your key via the settings and try again.");
+        }
+        throw new Error(`Failed to generate video: ${message}`);
     }
 };
