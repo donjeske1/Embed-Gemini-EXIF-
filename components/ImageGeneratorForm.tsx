@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import type { AspectRatio, ImageModel } from '../types';
 import { useAppContext } from '../state/AppContext';
 import { enhancePromptStream } from '../services/geminiService';
@@ -7,8 +7,40 @@ import Tooltip from './ui/Tooltip';
 
 const aspectRatios: AspectRatio[] = ['1:1', '16:9', '9:16', '4:3', '3:4'];
 
-// FIX: Remove local PromptMode type as it's now managed globally.
-// type PromptMode = 'text' | 'json';
+const jsonExamplePrompts = [
+  {
+    name: "Simple Text",
+    json: JSON.stringify([{ text: "A cute red panda, highly detailed, fantasy art" }])
+  },
+  {
+    name: "With Negative Prompt",
+    json: JSON.stringify([
+      { text: "A photorealistic portrait of an old sailor with a weathered face" },
+      { text: "Negative prompt: cartoon, illustration, watermark, text" }
+    ])
+  },
+  {
+    name: "Cinematic Style",
+    json: JSON.stringify([
+      { text: "A knight in shining armor standing on a misty mountain peak at sunrise" },
+      { control: { style: "cinematic" } }
+    ])
+  },
+  {
+    name: "Watercolor Painting",
+    json: JSON.stringify([
+      { text: "A vibrant field of sunflowers under a dramatic sunset sky" },
+      { control: { style: "watercolor" } }
+    ])
+  },
+  {
+    name: "Low Poly 3D",
+    json: JSON.stringify([
+      { text: "A charming isometric island floating in the sky" },
+      { control: { style: "low-poly" } }
+    ])
+  },
+];
 
 interface ImageGeneratorFormProps {
     onGenerate: (prompt: string, model: ImageModel, aspectRatio: AspectRatio, numberOfImages: number) => void;
@@ -19,7 +51,6 @@ interface ImageGeneratorFormProps {
 const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onGenerateAllSuggestions, onRefreshExamples }) => {
   const { state, dispatch } = useAppContext();
   const {
-      // FIX: Get promptMode from the global state.
       isLoading, prompt, model, aspectRatio, referenceImages, numberOfImages, useWebSearch,
       examplePrompts, isFetchingExamples, promptMode
   } = state;
@@ -27,12 +58,51 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isImagen = model === 'imagen-4.0-generate-001';
   
-  // FIX: Remove local state for promptMode as it's now in AppContext.
-  // const [promptMode, setPromptMode] = useState<PromptMode>('text');
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [promptSuggestions, setPromptSuggestions] = useState<string[] | null>(null);
   const [showExamples, setShowExamples] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [showAdvancedJson, setShowAdvancedJson] = useState(false);
+  const [showJsonExamples, setShowJsonExamples] = useState(false);
+
+  const isJsonBuilderVisible = !isImagen && promptMode === 'json';
+
+  // Derive values for the structured JSON builder UI from state.prompt
+  const { positivePrompt, negativePrompt, style } = useMemo(() => {
+    if (!isJsonBuilderVisible) return { positivePrompt: prompt, negativePrompt: '', style: '' };
+    try {
+        const parts = JSON.parse(prompt || '[]');
+        if (!Array.isArray(parts)) throw new Error("Prompt is not a JSON array");
+
+        const textPart = parts.find(p => p.text && !p.text.toLowerCase().startsWith('negative prompt:'));
+        const negativePart = parts.find(p => p.text && p.text.toLowerCase().startsWith('negative prompt:'));
+        const controlPart = parts.find(p => p.control && p.control.style);
+
+        return {
+            positivePrompt: textPart?.text || '',
+            negativePrompt: negativePart?.text.replace(/negative prompt:\s*/i, '') || '',
+            style: controlPart?.control.style || '',
+        };
+    } catch (e) {
+        // Fallback for invalid JSON or a simple string from text mode.
+        return { positivePrompt: prompt.replace(/^\["|"\]$/g, ''), negativePrompt: '', style: '' };
+    }
+  }, [isJsonBuilderVisible, prompt]);
+
+  const handleJsonFieldChange = (field: 'positive' | 'negative' | 'style', value: string) => {
+    const parts = [];
+    const newPositive = field === 'positive' ? value : positivePrompt;
+    const newNegative = field === 'negative' ? value : negativePrompt;
+    const newStyle = field === 'style' ? value : style;
+
+    if (newPositive.trim()) parts.push({ text: newPositive.trim() });
+    if (newNegative.trim()) parts.push({ text: `Negative prompt: ${newNegative.trim()}` });
+    if (newStyle.trim()) parts.push({ control: { style: newStyle.trim() } });
+    
+    const newPrompt = JSON.stringify(parts);
+    dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'prompt', value: newPrompt } });
+  };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +114,7 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
     dispatch({ type: 'SET_ERROR', payload: null });
     setPromptSuggestions(null);
     try {
-        const currentPromptForEnhancing = promptMode === 'json' ? formatJsonDisplay(prompt) : prompt;
+        const currentPromptForEnhancing = isJsonBuilderVisible ? positivePrompt : prompt;
         const suggestions = await enhancePromptStream(currentPromptForEnhancing);
         setPromptSuggestions(suggestions);
     } catch (e: any) {
@@ -52,28 +122,6 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
     } finally {
         setIsEnhancing(false);
     }
-  };
-
-  const formatJsonDisplay = (jsonString: string | null): string => {
-    if (!jsonString) return '';
-    try {
-        const parsed = JSON.parse(jsonString);
-        const pretty = JSON.stringify(parsed, null, 2);
-        const trimmed = pretty.trim();
-        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-            return trimmed.substring(1, trimmed.length - 1).trim();
-        }
-        return pretty;
-    } catch {
-        return jsonString;
-    }
-  };
-  const displayPrompt = promptMode === 'json' ? formatJsonDisplay(prompt) : prompt;
-
-  const handlePromptTextAreaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const newValue = e.target.value;
-      const finalValue = promptMode === 'json' && !isImagen ? `[${newValue}]` : newValue;
-      dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'prompt', value: finalValue } });
   };
   
   const onPromptChange = (newPrompt: string) => {
@@ -97,7 +145,6 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
     Promise.all(newImagePromises).then(imageDataUrls => {
         dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'referenceImages', value: [...referenceImages, ...imageDataUrls] } });
         if (!isImagen && promptMode === 'json') {
-            // FIX: Dispatch action to update global promptMode state.
             dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'promptMode', value: 'text' } });
             onPromptChange('');
         }
@@ -173,12 +220,102 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
           </div>
         )}
 
-        <textarea
-          value={displayPrompt}
-          onChange={handlePromptTextAreaChange}
-          placeholder={promptMode === 'text' || isImagen ? 'e.g., A photo of a cat programming on a laptop' : 'e.g., { "text": "A photo of a cat..." }'}
-          className="w-full h-48 p-3 bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm transition-colors duration-200"
-        />
+        {isJsonBuilderVisible ? (
+          <div className="space-y-4 pt-2">
+            <div>
+              <label htmlFor="positive-prompt" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Main Prompt
+              </label>
+              <textarea
+                id="positive-prompt"
+                value={positivePrompt}
+                onChange={(e) => handleJsonFieldChange('positive', e.target.value)}
+                placeholder="e.g., A majestic bioluminescent jellyfish..."
+                className="w-full h-32 p-3 bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm transition-colors duration-200"
+              />
+            </div>
+            
+            <div className="border-t border-slate-200 dark:border-slate-800 pt-3">
+              <button type="button" onClick={() => setShowAdvancedJson(!showAdvancedJson)} className="flex items-center justify-between w-full text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white" aria-expanded={showAdvancedJson}>
+                <span>Advanced Options</span>
+                <svg className={`w-5 h-5 transform transition-transform duration-200 ${showAdvancedJson ? 'rotate-180' : 'rotate-0'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+              </button>
+            </div>
+
+            {showAdvancedJson && (
+              <div className="space-y-4 p-4 bg-slate-100 dark:bg-slate-800/60 rounded-lg animate-fade-in">
+                <div>
+                  <label htmlFor="negative-prompt" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Negative Prompt
+                  </label>
+                  <textarea
+                    id="negative-prompt"
+                    value={negativePrompt}
+                    onChange={(e) => handleJsonFieldChange('negative', e.target.value)}
+                    placeholder="e.g., blurry, cartoonish, low-resolution"
+                    className="w-full h-20 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm transition-colors duration-200"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="style" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Style
+                  </label>
+                  <input
+                    id="style"
+                    type="text"
+                    value={style}
+                    onChange={(e) => handleJsonFieldChange('style', e.target.value)}
+                    placeholder="e.g., photorealistic, watercolor, cinematic"
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm transition-colors duration-200"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="pt-1">
+                <Tooltip tip="See a list of sample JSON prompts to get inspired." className="w-full">
+                    <button
+                        type="button"
+                        onClick={() => setShowJsonExamples(!showJsonExamples)}
+                        className="w-full flex justify-center items-center gap-2 bg-slate-600 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
+                    >
+                        💡 {showJsonExamples ? 'Hide JSON Examples' : 'Show JSON Examples'}
+                    </button>
+                </Tooltip>
+            </div>
+
+            {showJsonExamples && (
+                <div className="space-y-3 p-4 bg-slate-100 dark:bg-slate-800/60 rounded-lg animate-fade-in">
+                    <div className="flex justify-between items-center">
+                        <h4 className="font-semibold text-slate-800 dark:text-slate-200">JSON Example Prompts:</h4>
+                        <button type="button" onClick={() => setShowJsonExamples(false)} className="text-xs text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white" aria-label="Close examples">&times; Close</button>
+                    </div>
+                    <ul className="space-y-2">
+                        {jsonExamplePrompts.map((example, index) => (
+                            <li key={index}>
+                                <button
+                                    type="button"
+                                    onClick={() => onPromptChange(example.json)}
+                                    className="w-full text-left p-3 bg-slate-200 dark:bg-slate-700/50 hover:bg-indigo-100 dark:hover:bg-indigo-600/50 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors duration-200"
+                                >
+                                    <span className="font-bold block">{example.name}</span>
+                                    <pre className="text-xs whitespace-pre-wrap mt-1 opacity-80"><code>{JSON.stringify(JSON.parse(example.json), null, 2)}</code></pre>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+          </div>
+        ) : (
+          <textarea
+            value={prompt}
+            onChange={(e) => onPromptChange(e.target.value)}
+            placeholder={'e.g., A photo of a cat programming on a laptop'}
+            className="w-full h-48 p-3 bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm transition-colors duration-200"
+          />
+        )}
+
 
         {promptMode === 'text' && (
              <div className="pt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">

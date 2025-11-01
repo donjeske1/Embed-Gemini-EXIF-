@@ -1,5 +1,5 @@
 {
-  "name": "Gemini Embed Prompt in EXIF",
+  "name": "Copy of Gemini Embed Prompt in EXIF",
   "description": "An application to generate images from JSON prompts using Gemini's 'nano banana' model, embed the prompt into the image metadata, and extract prompts from uploaded images.",
   "requestFramePermissions": []
 }
