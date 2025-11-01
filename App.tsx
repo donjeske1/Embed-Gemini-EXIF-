@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import type { ImageModel, AspectRatio } from './types';
+import type { CreativeStrength, ImageModel, AspectRatio } from './types';
 import { 
     generateImagesFromPrompt, 
     refineImage, 
@@ -24,13 +24,12 @@ import ApiKeyDialog from './components/ApiKeyDialog';
 declare const piexif: any;
 
 // To inform TypeScript about the aistudio global
-// FIX: Define the AIStudio interface to resolve the type conflict for window.aistudio.
-interface AIStudio {
-    hasSelectedApiKey: () => Promise<boolean>;
-    openSelectKey: () => Promise<void>;
-}
-
+// FIX: To resolve the type conflict, the AIStudio interface and the augmentation of the Window interface are both placed within the `declare global` block. This ensures that AIStudio is correctly treated as a global type.
 declare global {
+    interface AIStudio {
+        hasSelectedApiKey: () => Promise<boolean>;
+        openSelectKey: () => Promise<void>;
+    }
     interface Window {
         aistudio?: AIStudio;
     }
@@ -98,7 +97,7 @@ const extractMetadataFromImage = (imageDataUrl: string): GenerationMetadata | st
 
 const App: React.FC = () => {
   const { state, dispatch } = useAppContext();
-  const { view, mobileView, error, model, selectedImageIndex, activeHistoryId, activeBatchHistoryIds, generationHistory, refinementPrompt, generatedImages, generatedVideoUrl, isNightMode } = state;
+  const { view, mobileView, error, model, selectedImageIndex, activeHistoryId, activeBatchHistoryIds, generationHistory, refinementPrompt, generatedImages, generatedVideoUrl, isNightMode, refinementCreativeStrength, refinementStyle } = state;
   const [hasApiKey, setHasApiKey] = useState(false);
 
   const checkApiKey = useCallback(async () => {
@@ -302,7 +301,10 @@ const App: React.FC = () => {
         const mimeType = meta.match(/:(.*?);/)?.[1] || 'image/jpeg';
         const referenceImage: ReferenceImage = { mimeType, data };
 
-        const refinedBase64 = await refineImage(refinementPrompt, referenceImage);
+        const refinedBase64 = await refineImage(refinementPrompt, referenceImage, {
+            creativeStrength: refinementCreativeStrength,
+            style: refinementStyle,
+        });
 
         const newPromptForMetadata = `${activeHistoryItem.metadata.prompt}\n\n---\n\nRefinement: ${refinementPrompt}`;
         const filenameSlug = await summarizePromptForFilename(newPromptForMetadata);
@@ -324,7 +326,7 @@ const App: React.FC = () => {
         dispatch({ type: 'SET_ERROR', payload: e.message || "An unknown error occurred during refinement." });
         dispatch({ type: 'SET_REFINING', payload: false });
     }
-  }, [generatedImages, activeHistoryId, activeBatchHistoryIds, refinementPrompt, selectedImageIndex, generationHistory, dispatch]);
+  }, [generatedImages, activeHistoryId, activeBatchHistoryIds, refinementPrompt, selectedImageIndex, generationHistory, dispatch, refinementCreativeStrength, refinementStyle]);
 
   const handleSelectHistoryItem = useCallback((item: HistoryItem) => {
     dispatch({ type: 'SET_HISTORY_ITEM', payload: item });

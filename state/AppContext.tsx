@@ -1,5 +1,5 @@
 import React, { createContext, useReducer, Dispatch, useContext, ReactNode, useEffect } from 'react';
-import type { ImageModel, AspectRatio, View } from '../types';
+import type { CreativeStrength, ImageModel, AspectRatio, View } from '../types';
 
 // --- STATE SHAPE ---
 
@@ -48,6 +48,8 @@ export interface AppState {
   generatedVideoUrl: string | null;
   selectedImageIndex: number;
   refinementPrompt: string;
+  refinementCreativeStrength: CreativeStrength;
+  refinementStyle: string;
   
   // History State
   generationHistory: HistoryItem[];
@@ -84,6 +86,8 @@ export const initialState: AppState = {
   generatedVideoUrl: null,
   selectedImageIndex: 0,
   refinementPrompt: '',
+  refinementCreativeStrength: 'MEDIUM',
+  refinementStyle: '',
   generationHistory: [],
   activeHistoryId: null,
   activeBatchHistoryIds: null,
@@ -195,6 +199,8 @@ const appReducer = (state: AppState, action: Action): AppState => {
             generatedImages: state.generatedImages ? state.generatedImages.map((img, index) => index === state.selectedImageIndex ? newImage : img) : [newImage],
             generationHistory: state.generationHistory.map(item => item.id === historyIdToUpdate ? { ...newHistoryItem, id: historyIdToUpdate } : item),
             refinementPrompt: '',
+            refinementStyle: '',
+            refinementCreativeStrength: 'MEDIUM',
         };
     }
     case 'SET_SELECTED_IMAGE_INDEX':

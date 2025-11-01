@@ -1,5 +1,5 @@
 import { GoogleGenAI, Modality, Part, Type } from "@google/genai";
-import type { AspectRatio, ImageModel, VideoAspectRatio, VideoResolution } from "../types";
+import type { AspectRatio, CreativeStrength, ImageModel, VideoAspectRatio, VideoResolution } from "../types";
 
 // This will be re-initialized for video calls to use the user-selected key
 let ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -174,15 +174,36 @@ export const describeImageStream = async function* (referenceImage: ReferenceIma
 
 export const refineImage = async (
     prompt: string,
-    referenceImage: ReferenceImage
+    referenceImage: ReferenceImage,
+    options: { creativeStrength?: CreativeStrength; style?: string } = {}
 ): Promise<string> => {
     try {
-        const imagePart = { inlineData: { mimeType: referenceImage.mimeType, data: referenceImage.data } };
-        const textPart = { text: prompt };
+        // For 'gemini-2.5-flash-image', text prompts and control parameters must be bundled into a single JSON string.
+        const logicalParts: any[] = [{ text: prompt }];
+
+        const control: { creativeStrength?: CreativeStrength; style?: string } = {};
+        if (options.creativeStrength) {
+            control.creativeStrength = options.creativeStrength;
+        }
+        if (options.style && options.style.trim()) {
+            control.style = options.style.trim();
+        }
+
+        if (Object.keys(control).length > 0) {
+            logicalParts.push({ control });
+        }
+
+        const jsonPromptString = JSON.stringify(logicalParts);
+        
+        // The final parts array for the API call contains the image and the JSON string as a text part.
+        const parts: Part[] = [
+            { inlineData: { mimeType: referenceImage.mimeType, data: referenceImage.data } },
+            { text: jsonPromptString }
+        ];
 
         const response = await getAiClient().models.generateContent({
             model: 'gemini-2.5-flash-image',
-            contents: { parts: [imagePart, textPart] },
+            contents: { parts },
             config: { responseModalities: [Modality.IMAGE] },
         });
 
