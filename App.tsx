@@ -329,16 +329,27 @@ const App: React.FC = () => {
             style: refinementStyle,
         });
 
-        const newPromptForMetadata = `${activeHistoryItem.metadata.prompt}\n\n---\n\nRefinement: ${refinementPrompt}`;
+        const isFromImagen = activeHistoryItem.metadata.model === 'imagen-4.0-generate-001';
+        
+        const refinementNote = isFromImagen
+          ? `\n\n---\n\nRefined (from Imagen) with Nano Banana: ${refinementPrompt}`
+          : `\n\n---\n\nRefinement: ${refinementPrompt}`;
+        
+        const newPromptForMetadata = activeHistoryItem.metadata.prompt + refinementNote;
         const filenameSlug = await summarizePromptForFilename(newPromptForMetadata);
-        const newMetadata: GenerationMetadata = { ...activeHistoryItem.metadata, prompt: newPromptForMetadata, filenameSlug };
+        
+        const newMetadata: GenerationMetadata = {
+          ...activeHistoryItem.metadata,
+          prompt: newPromptForMetadata,
+          filenameSlug,
+          model: 'gemini-2.5-flash-image', // The refined image is always a product of Nano Banana.
+        };
 
         const refinedImageWithMetadata = await embedMetadataInImage(refinedBase64, 'image/png', newMetadata);
         
-        // This is the key change. We determine how to update the history item's images array.
         const updatedHistoryImages = activeBatchHistoryIds
-            ? [refinedImageWithMetadata] // For batch, the history item only has one image, so we replace it.
-            : activeHistoryItem.images.map((img, index) => // For a multi-image item, we replace only the selected image.
+            ? [refinedImageWithMetadata]
+            : activeHistoryItem.images.map((img, index) =>
                 index === selectedImageIndex ? refinedImageWithMetadata : img
               );
 
