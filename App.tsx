@@ -92,6 +92,29 @@ const extractMetadataFromImage = (imageDataUrl: string): GenerationMetadata | st
   }
 };
 
+const downloadImage = async (dataUrl: string, filename: string) => {
+  try {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  } catch (error) {
+    console.warn("Blob download failed, falling back to data URL.", error);
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = filename;
+    link.target = '_blank'; // Important for iOS fallback
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
+
 
 // --- Main App Component ---
 
@@ -413,6 +436,40 @@ const App: React.FC = () => {
     }
   }, [state.imagePreview, dispatch]);
   
+  const handleDownloadDescribedImage = useCallback(async () => {
+    if (!state.imagePreview || !state.extractedMetadata) return;
+
+    dispatch({ type: 'SET_EMBEDDING', payload: true });
+    
+    try {
+        const [meta, data] = state.imagePreview.split(',');
+        const mimeType = meta.match(/:(.*?);/)?.[1] || 'image/jpeg';
+
+        const imageWithMetadata = await embedMetadataInImage(data, mimeType, state.extractedMetadata);
+        
+        await downloadImage(
+          imageWithMetadata,
+          `${state.extractedMetadata.filenameSlug || 'described-image'}.jpg`
+        );
+        
+    } catch (e: any) {
+        dispatch({ type: 'SET_ERROR', payload: e.message || "Failed to embed metadata." });
+    } finally {
+        dispatch({ type: 'SET_EMBEDDING', payload: false });
+    }
+  }, [state.imagePreview, state.extractedMetadata, dispatch]);
+  
+  const handleDownloadSingleImage = useCallback(async (index: number) => {
+    if (!state.generatedImages) return;
+
+    const historyId = state.activeBatchHistoryIds ? state.activeBatchHistoryIds[index] : state.activeHistoryId;
+    const activeItem = state.generationHistory.find(h => h.id === historyId);
+    const filename = activeItem?.metadata.filenameSlug || `generated-image-${activeItem?.id || index}`;
+    const imageUrl = state.generatedImages[index];
+    
+    await downloadImage(imageUrl, `${filename}.jpg`);
+  }, [state.generatedImages, state.activeBatchHistoryIds, state.activeHistoryId, state.generationHistory]);
+
   const handleApiKeySelected = () => {
       setHasApiKey(true);
       if(view === 'video') {
@@ -471,7 +528,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div className={`lg:col-span-3 mt-8 lg:mt-0 ${mobileView === 'form' ? 'hidden' : 'block'} lg:block`}>
-                  {hasResults && <ResultsViewer onRefine={handleRefine} />}
+                  {hasResults && <ResultsViewer onRefine={handleRefine} onDownloadImage={handleDownloadSingleImage} />}
                   {hasHistory && <GenerationHistory onSelectItem={handleSelectHistoryItem} />}
                   {!hasResults && !hasHistory && (
                       <div className="h-full flex items-center justify-center text-center text-slate-500 bg-white/70 dark:bg-slate-900/70 rounded-xl p-8 min-h-[400px] lg:min-h-0">
@@ -492,7 +549,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div className={`lg:col-span-3 mt-8 lg:mt-0 ${mobileView === 'form' ? 'hidden' : 'block'} lg:block`}>
-                  {hasResults && <ResultsViewer onRefine={() => {}} />}
+                  {hasResults && <ResultsViewer onRefine={() => {}} onDownloadImage={() => {}} />}
                   {!hasResults && !hasHistory && (
                       <div className="h-full flex items-center justify-center text-center text-slate-500 bg-white/70 dark:bg-slate-900/70 rounded-xl p-8 min-h-[400px] lg:min-h-0">
                          <p>Your generated content and history will appear here.</p>
@@ -517,7 +574,7 @@ const App: React.FC = () => {
               </div>
               {/* --- Right Column (EXTRACT VIEW) --- */}
               <div className="lg:col-span-3 mt-8 lg:mt-0 self-start">
-                  <MetadataViewer onUsePrompt={handleUseExtractedPrompt} />
+                  <MetadataViewer onUsePrompt={handleUseExtractedPrompt} onDownloadDescribedImage={handleDownloadDescribedImage} />
               </div>
             </>
           )}

@@ -30,6 +30,7 @@ export interface AppState {
   isNightMode: boolean;
   isRefining: boolean;
   isDescribing: boolean;
+  isEmbedding: boolean;
   isFetchingExamples: boolean;
   error: string | null;
 
@@ -62,6 +63,7 @@ export interface AppState {
   extractionMessage: string | null;
   isPromptValid: boolean;
   isEditingPrompt: boolean;
+  isDescriptionGenerated: boolean;
 }
 
 export const initialState: AppState = {
@@ -72,6 +74,7 @@ export const initialState: AppState = {
   isNightMode: true,
   isRefining: false,
   isDescribing: false,
+  isEmbedding: false,
   isFetchingExamples: true,
   error: null,
   prompt: "A majestic bioluminescent jellyfish floating in a dark, deep ocean, surrounded by sparkling plankton.",
@@ -96,6 +99,7 @@ export const initialState: AppState = {
   extractionMessage: null,
   isPromptValid: false,
   isEditingPrompt: false,
+  isDescriptionGenerated: false,
 };
 
 // --- ACTIONS ---
@@ -107,6 +111,7 @@ export type Action =
   | { type: 'SET_LOADING_MESSAGE', payload: string | null }
   | { type: 'SET_REFINING'; payload: boolean }
   | { type: 'SET_DESCRIBING'; payload: boolean }
+  | { type: 'SET_EMBEDDING'; payload: boolean }
   | { type: 'SET_FETCHING_EXAMPLES'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_FORM_FIELD'; payload: { field: keyof AppState; value: any } }
@@ -146,6 +151,8 @@ const appReducer = (state: AppState, action: Action): AppState => {
         return { ...state, isRefining: action.payload };
     case 'SET_DESCRIBING':
         return { ...state, isDescribing: action.payload };
+    case 'SET_EMBEDDING':
+        return { ...state, isEmbedding: action.payload };
     case 'SET_FETCHING_EXAMPLES':
         return { ...state, isFetchingExamples: action.payload };
     case 'SET_ERROR':
@@ -226,11 +233,11 @@ const appReducer = (state: AppState, action: Action): AppState => {
         };
     }
     case 'START_EXTRACTION':
-        return { ...state, imagePreview: null, extractedMetadata: null, isPromptValid: false, isEditingPrompt: false, extractionMessage: 'Processing image...' };
+        return { ...state, imagePreview: null, extractedMetadata: null, isPromptValid: false, isEditingPrompt: false, isDescriptionGenerated: false, extractionMessage: 'Processing image...' };
     case 'EXTRACTION_RESULT':
-        return { ...state, imagePreview: action.payload.dataUrl, extractedMetadata: action.payload.metadata, extractionMessage: action.payload.message, isPromptValid: action.payload.isValid };
+        return { ...state, imagePreview: action.payload.dataUrl, extractedMetadata: action.payload.metadata, extractionMessage: action.payload.message, isPromptValid: action.payload.isValid, isDescriptionGenerated: false };
     case 'DESCRIPTION_SUCCESS':
-        return { ...state, extractedMetadata: action.payload.metadata, isPromptValid: true, extractionMessage: action.payload.message, isEditingPrompt: false };
+        return { ...state, extractedMetadata: action.payload.metadata, isPromptValid: true, extractionMessage: action.payload.message, isEditingPrompt: false, isDescriptionGenerated: true };
     case 'SET_EXTRACTED_METADATA':
         return { ...state, extractedMetadata: action.payload };
     case 'SET_IS_EDITING_PROMPT':

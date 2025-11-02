@@ -5,11 +5,12 @@ import Tooltip from './ui/Tooltip';
 
 interface ResultsViewerProps {
     onRefine: () => void;
+    onDownloadImage: (index: number) => void;
 }
 
-const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine }) => {
+const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine, onDownloadImage }) => {
     const { state, dispatch } = useAppContext();
-    const { generatedImages, generatedVideoUrl, selectedImageIndex, isLoading, loadingMessage, isRefining, refinementPrompt, model, generationHistory, activeHistoryId, activeBatchHistoryIds, refinementCreativeStrength, refinementStyle } = state;
+    const { generatedImages, generatedVideoUrl, selectedImageIndex, isLoading, loadingMessage, isRefining, refinementPrompt, model, refinementCreativeStrength, refinementStyle } = state;
 
     const isImagen = model === 'imagen-4.0-generate-001';
 
@@ -49,27 +50,11 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine }) => {
         return null;
     }
 
-    const getActiveHistoryItem = (index: number) => {
-        const historyId = activeBatchHistoryIds ? activeBatchHistoryIds[index] : activeHistoryId;
-        return generationHistory.find(h => h.id === historyId);
-    };
-
     const handleDownloadAll = () => {
-        generatedImages.forEach((imgSrc, index) => {
-            const activeItem = getActiveHistoryItem(index);
-            const filename = activeItem?.metadata.filenameSlug || `generated-image-${activeItem?.id || index}`;
-            const link = document.createElement('a');
-            link.href = imgSrc;
-            link.download = `${filename}.jpg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+        generatedImages.forEach((_, index) => {
+            onDownloadImage(index);
         });
     };
-
-    const selectedImageUrl = generatedImages[selectedImageIndex];
-    const selectedHistoryItem = getActiveHistoryItem(selectedImageIndex);
-    const selectedImageFilename = `${selectedHistoryItem?.metadata.filenameSlug || 'generated-image-with-prompt'}.jpg`;
 
     return (
         <div className="space-y-4">
@@ -83,43 +68,40 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine }) => {
                 )}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {generatedImages.map((imgSrc, index) => {
-                    const activeItem = getActiveHistoryItem(index);
-                    const filename = `${activeItem?.metadata.filenameSlug || `generated-image-${activeItem?.id || index}`}.jpg`;
-                    return (
-                        <div key={index} className="relative group">
-                             <button onClick={() => dispatch({ type: 'SET_SELECTED_IMAGE_INDEX', payload: index })} className={`w-full block rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 focus:ring-indigo-500 ${selectedImageIndex === index ? 'ring-2 ring-indigo-500' : 'ring-1 ring-slate-300 dark:ring-slate-700 hover:ring-indigo-500 dark:hover:ring-indigo-600'}`}>
-                                <img src={imgSrc} alt={`Generated ${index + 1}`} className="w-full h-full object-cover aspect-square" />
+                {generatedImages.map((imgSrc, index) => (
+                    <div key={index} className="relative group">
+                         <button onClick={() => dispatch({ type: 'SET_SELECTED_IMAGE_INDEX', payload: index })} className={`w-full block rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 focus:ring-indigo-500 ${selectedImageIndex === index ? 'ring-2 ring-indigo-500' : 'ring-1 ring-slate-300 dark:ring-slate-700 hover:ring-indigo-500 dark:hover:ring-indigo-600'}`}>
+                            <img src={imgSrc} alt={`Generated ${index + 1}`} className="w-full h-full object-cover aspect-square" />
+                        </button>
+                         <Tooltip tip="Download with metadata" position="top">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDownloadImage(index);
+                                }}
+                                className="absolute bottom-2 right-2 bg-black/60 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-black/80 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black/50 focus:ring-white"
+                                aria-label={`Download image ${index + 1}`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
                             </button>
-                             <Tooltip tip="Download with metadata" position="top">
-                                <a
-                                    href={imgSrc}
-                                    download={filename}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="absolute bottom-2 right-2 bg-black/60 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-black/80 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black/50 focus:ring-white"
-                                    aria-label={`Download image ${index + 1}`}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                                    </svg>
-                                </a>
-                            </Tooltip>
-                        </div>
-                    );
-                })}
+                        </Tooltip>
+                    </div>
+                ))}
             </div>
 
-            {selectedImageUrl && (
+            {generatedImages[selectedImageIndex] && (
                 <div className="space-y-4 pt-4">
                     <h3 className="text-lg font-semibold">Preview:</h3>
-                    <img src={selectedImageUrl} alt="Selected generated image" className="rounded-xl shadow-lg max-w-full mx-auto" />
-                    <a href={selectedImageUrl} download={selectedImageFilename} className="block w-full text-center bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200">
+                    <img src={generatedImages[selectedImageIndex]} alt="Selected generated image" className="rounded-xl shadow-lg max-w-full mx-auto" />
+                    <button onClick={() => onDownloadImage(selectedImageIndex)} className="block w-full text-center bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200">
                         Download Selected Image with Metadata
-                    </a>
+                    </button>
                 </div>
             )}
 
-            {selectedImageUrl && !isImagen && (
+            {generatedImages[selectedImageIndex] && !isImagen && (
                 <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
                     <div className="flex items-center gap-2">
                         <h3 className="text-lg font-semibold text-teal-500 dark:text-teal-400">Conversational Refinement</h3>

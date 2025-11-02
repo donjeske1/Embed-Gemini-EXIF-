@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAppContext } from '../state/AppContext';
 import Tooltip from './ui/Tooltip';
+import LoaderIcon from './ui/LoaderIcon';
 
 const formatJsonDisplay = (jsonString: string | null): string => {
     if (!jsonString) return '';
@@ -16,6 +17,12 @@ const formatJsonDisplay = (jsonString: string | null): string => {
         return jsonString;
     }
 };
+
+const DownloadIcon: React.FC = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+    </svg>
+);
 
 interface MetadataItemProps {
     label: string;
@@ -39,11 +46,12 @@ const MetadataItem: React.FC<MetadataItemProps> = ({ label, value, isCode = fals
 
 interface MetadataViewerProps {
     onUsePrompt: () => void;
+    onDownloadDescribedImage: () => void;
 }
 
-const MetadataViewer: React.FC<MetadataViewerProps> = ({ onUsePrompt }) => {
+const MetadataViewer: React.FC<MetadataViewerProps> = ({ onUsePrompt, onDownloadDescribedImage }) => {
     const { state, dispatch } = useAppContext();
-    const { imagePreview, extractedMetadata, isEditingPrompt, isPromptValid } = state;
+    const { imagePreview, extractedMetadata, isEditingPrompt, isPromptValid, isDescriptionGenerated, isEmbedding } = state;
     const displayPrompt = formatJsonDisplay(extractedMetadata?.prompt || null);
 
     if (!imagePreview) {
@@ -116,6 +124,19 @@ const MetadataViewer: React.FC<MetadataViewerProps> = ({ onUsePrompt }) => {
                                     </button>
                                 </Tooltip>
                             </div>
+                             {isDescriptionGenerated && (
+                                <div className="pt-2">
+                                    <Tooltip tip="Download the uploaded image with the new AI-generated description embedded in its metadata.">
+                                        <button
+                                            onClick={onDownloadDescribedImage}
+                                            disabled={isEmbedding}
+                                            className="w-full flex justify-center items-center gap-2 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200"
+                                        >
+                                            {isEmbedding ? <><LoaderIcon /> Embedding...</> : <><DownloadIcon /> Download with Description</>}
+                                        </button>
+                                    </Tooltip>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
