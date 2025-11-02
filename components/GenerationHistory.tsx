@@ -225,7 +225,8 @@ const GenerationHistory: React.FC<GenerationHistoryProps> = ({ onSelectItem }) =
                     </div>
                     
                     {Object.entries(groupedAndFilteredHistory).map(([groupName, items]) => {
-                        if (items.length === 0) return null;
+                        // FIX: Add type guard to ensure `items` is an array before accessing its properties.
+                        if (!Array.isArray(items) || items.length === 0) return null;
                         return (
                             <div key={groupName} className="pt-4">
                                 <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3 border-b border-slate-200 dark:border-slate-700 pb-2">{groupName}</h3>

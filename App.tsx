@@ -207,20 +207,20 @@ const MaskingEditor: React.FC<MaskingEditorProps> = ({ imageSrc, onRefineWithMas
   }, [lastPos, brushSize, zoom]);
 
   const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
-    // Pan with middle mouse button, or right-click, or Alt + left-click
-    if ((e as React.MouseEvent).button === 1 || (e as React.MouseEvent).button === 2 || (e as React.MouseEvent).altKey) {
+    const { clientX, clientY } = 'touches' in e ? e.touches[0] : e;
+    
+    // Pan with middle mouse button, right-click, or Alt + left-click
+    if ('button' in e && (e.button === 1 || e.button === 2 || e.altKey)) {
       e.preventDefault();
       setIsPanning(true);
-      const { clientX, clientY } = 'touches' in e ? e.touches[0] : e;
       panStartRef.current = { x: clientX - offset.x, y: clientY - offset.y };
       return;
     }
     
-    // Start drawing with left-click
-    if ((e as React.MouseEvent).button === 0 || 'touches' in e) {
+    // Start drawing with left-click or single touch
+    if (('button' in e && e.button === 0) || 'touches' in e) {
         e.preventDefault();
         setIsDrawing(true);
-        const { clientX, clientY } = 'touches' in e ? e.touches[0] : e;
         setLastPos(getTransformedPoint(clientX, clientY));
     }
   };
@@ -327,7 +327,7 @@ const MaskingEditor: React.FC<MaskingEditorProps> = ({ imageSrc, onRefineWithMas
         <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
           <div 
             ref={containerRef} 
-            className={`lg:col-span-2 relative flex items-center justify-center bg-slate-100 dark:bg-slate-800/50 rounded-lg overflow-hidden touch-none ${isDrawing ? 'cursor-crosshair' : ''} ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+            className={`lg:col-span-2 relative flex items-center justify-center bg-slate-100 dark:bg-slate-800/50 rounded-lg overflow-hidden touch-none ${isPanning ? 'cursor-grabbing' : isDrawing ? 'cursor-crosshair' : 'cursor-grab'}`}
             onWheel={handleWheel}
             onMouseDown={handlePointerDown}
             onMouseMove={handlePointerMove}
