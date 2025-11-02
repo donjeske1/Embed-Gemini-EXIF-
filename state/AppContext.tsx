@@ -20,6 +20,7 @@ export interface HistoryItem {
   images: string[]; // base64 data URLs
   timestamp: number;
   metadata: GenerationMetadata;
+  isFavorite?: boolean;
 }
 
 export interface AppState {
@@ -134,6 +135,7 @@ export type Action =
   | { type: 'CLEAR_HISTORY' }
   | { type: 'OPEN_MASKING_MODAL' }
   | { type: 'CLOSE_MASKING_MODAL' }
+  | { type: 'TOGGLE_FAVORITE'; payload: string }
   | { type: 'SET_EXAMPLE_PROMPTS'; payload: { prompts: string[]; error?: string } };
 
 
@@ -260,6 +262,15 @@ const appReducer = (state: AppState, action: Action): AppState => {
       return { ...state, isMaskingModalOpen: true };
     case 'CLOSE_MASKING_MODAL':
       return { ...state, isMaskingModalOpen: false, isRefining: false };
+    case 'TOGGLE_FAVORITE':
+      return {
+        ...state,
+        generationHistory: state.generationHistory.map(item =>
+          item.id === action.payload
+            ? { ...item, isFavorite: !item.isFavorite }
+            : item
+        ),
+      };
     case 'VALIDATE_EDITED_PROMPT': {
         if (!state.extractedMetadata) return state;
         let isValid = false;
@@ -338,8 +349,17 @@ const loadStateFromLocalStorage = (): Partial<AppState> | undefined => {
     if (serializedState === null) {
       return undefined;
     }
-    // Don't persist results across reloads
     const parsed = JSON.parse(serializedState);
+
+    // Ensure history items have the isFavorite property for backward compatibility
+    if (parsed.generationHistory && Array.isArray(parsed.generationHistory)) {
+        parsed.generationHistory = parsed.generationHistory.map((item: HistoryItem) => ({
+            ...item,
+            isFavorite: item.isFavorite || false,
+        }));
+    }
+
+    // Don't persist results across reloads
     delete parsed.generatedImages;
     delete parsed.generatedVideoUrl;
     delete parsed.activeHistoryId;

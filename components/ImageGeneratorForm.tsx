@@ -88,9 +88,9 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
     }
   };
   
-  const onPromptChange = (newPrompt: string) => {
+  const onPromptChange = useCallback((newPrompt: string) => {
       dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'prompt', value: newPrompt } });
-  };
+  }, [dispatch]);
 
   const processFiles = useCallback((files: FileList) => {
     const newImagePromises: Promise<string>[] = [];
@@ -113,7 +113,7 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
             onPromptChange('');
         }
     }).catch(console.error);
-  }, [referenceImages, isImagen, promptMode, dispatch]);
+  }, [referenceImages, isImagen, promptMode, dispatch, onPromptChange]);
 
   const handleAddImages = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -134,10 +134,25 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       setIsDraggingOver(false);
+
+      // Check for dragged image URL from history
+      const draggedUrl = e.dataTransfer.getData('text/plain');
+      if (draggedUrl && draggedUrl.startsWith('data:image/')) {
+          dispatch({ 
+              type: 'SET_FORM_FIELD', 
+              payload: { field: 'referenceImages', value: [...referenceImages, draggedUrl].slice(0, 5) }
+          });
+          if (!isImagen && promptMode === 'json') {
+              dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'promptMode', value: 'text' } });
+              onPromptChange('');
+          }
+          return; // Stop processing here
+      }
+
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
           processFiles(e.dataTransfer.files);
       }
-  }, [processFiles]);
+  }, [processFiles, referenceImages, dispatch, isImagen, promptMode, onPromptChange]);
 
   const handleRemoveImage = (indexToRemove: number) => {
       dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'referenceImages', value: referenceImages.filter((_, index) => index !== indexToRemove) } });
@@ -398,7 +413,8 @@ const ImageGeneratorForm: React.FC<ImageGeneratorFormProps> = ({ onGenerate, onG
                         <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <p className="mt-2 font-bold">Drag & drop images here or click the '+' button</p>
+                        <p className="mt-2 font-bold">Drag & drop images here</p>
+                        <p className="text-sm">...from your computer or the history gallery</p>
                     </div>
                 )}
             </div>

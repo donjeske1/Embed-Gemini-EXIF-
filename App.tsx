@@ -135,6 +135,13 @@ const MaskingEditor: React.FC<MaskingEditorProps> = ({ imageSrc, onRefineWithMas
   const [isDrawing, setIsDrawing] = useState(false);
   const [lastPos, setLastPos] = useState<{ x: number; y: number } | null>(null);
 
+  // New state for zoom and pan
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef({ x: 0, y: 0 });
+
+
   const resizeCanvases = useCallback(() => {
     const image = new Image();
     image.src = imageSrc;
@@ -145,29 +152,25 @@ const MaskingEditor: React.FC<MaskingEditorProps> = ({ imageSrc, onRefineWithMas
 
         if (!container || !imageCanvas || !drawingCanvas) return;
         
-        const maxWidth = container.clientWidth;
-        const maxHeight = container.clientHeight;
-
-        const imageAspectRatio = image.width / image.height;
+        // Set canvas dimensions to the image's actual dimensions
+        imageCanvas.width = image.width;
+        imageCanvas.height = image.height;
+        drawingCanvas.width = image.width;
+        drawingCanvas.height = image.height;
         
-        let finalWidth = image.width;
-        let finalHeight = image.height;
-
-        if (finalWidth / maxWidth > finalHeight / maxHeight) {
-            finalWidth = maxWidth;
-            finalHeight = finalWidth / imageAspectRatio;
-        } else {
-            finalHeight = maxHeight;
-            finalWidth = finalHeight * imageAspectRatio;
-        }
-
-        [imageCanvas, drawingCanvas].forEach(canvas => {
-            canvas.width = finalWidth;
-            canvas.height = finalHeight;
-        });
-
         const ctx = imageCanvas.getContext('2d');
-        ctx?.drawImage(image, 0, 0, finalWidth, finalHeight);
+        ctx?.drawImage(image, 0, 0);
+
+        // Calculate initial zoom and offset to fit and center the image
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+        const initialZoom = Math.min(1, containerWidth / image.width, containerHeight / image.height);
+        
+        setZoom(initialZoom);
+
+        const centeredX = (containerWidth - image.width * initialZoom) / 2;
+        const centeredY = (containerHeight - image.height * initialZoom) / 2;
+        setOffset({ x: centeredX, y: centeredY });
     };
   }, [imageSrc]);
 
@@ -177,59 +180,95 @@ const MaskingEditor: React.FC<MaskingEditorProps> = ({ imageSrc, onRefineWithMas
     return () => window.removeEventListener('resize', resizeCanvases);
   }, [resizeCanvases]);
 
-  const getPointerPos = (e: React.MouseEvent | React.TouchEvent) => {
-    const canvas = drawingCanvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    
-    let clientX, clientY;
-    if ('touches' in e) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-
+  const getTransformedPoint = (clientX: number, clientY: number): { x: number, y: number } => {
+    const container = containerRef.current;
+    if (!container) return { x: 0, y: 0 };
+    const rect = container.getBoundingClientRect();
     return {
-      x: clientX - rect.left,
-      y: clientY - rect.top
+      x: (clientX - rect.left - offset.x) / zoom,
+      y: (clientY - rect.top - offset.y) / zoom,
     };
   };
   
-  const draw = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing) return;
-    const pos = getPointerPos(e);
-    if (!pos) return;
-
+  const draw = useCallback((currentPos: { x: number, y: number }) => {
     const ctx = drawingCanvasRef.current?.getContext('2d');
-    if (!ctx) return;
-    
+    if (!ctx || !lastPos) return;
+
     ctx.beginPath();
-    if (lastPos) {
-       ctx.moveTo(lastPos.x, lastPos.y);
-    } else {
-       ctx.moveTo(pos.x, pos.y);
-    }
-    ctx.lineTo(pos.x, pos.y);
+    ctx.moveTo(lastPos.x, lastPos.y);
+    ctx.lineTo(currentPos.x, currentPos.y);
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.lineWidth = brushSize;
+    ctx.lineWidth = brushSize / zoom; // Scale brush size
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
 
-    setLastPos(pos);
-  }, [isDrawing, lastPos, brushSize]);
+    setLastPos(currentPos);
+  }, [lastPos, brushSize, zoom]);
 
-  const handleStartDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    setIsDrawing(true);
-    setLastPos(getPointerPos(e));
+  const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
+    // Pan with middle mouse button, or right-click, or Alt + left-click
+    if ((e as React.MouseEvent).button === 1 || (e as React.MouseEvent).button === 2 || (e as React.MouseEvent).altKey) {
+      e.preventDefault();
+      setIsPanning(true);
+      const { clientX, clientY } = 'touches' in e ? e.touches[0] : e;
+      panStartRef.current = { x: clientX - offset.x, y: clientY - offset.y };
+      return;
+    }
+    
+    // Start drawing with left-click
+    if ((e as React.MouseEvent).button === 0 || 'touches' in e) {
+        e.preventDefault();
+        setIsDrawing(true);
+        const { clientX, clientY } = 'touches' in e ? e.touches[0] : e;
+        setLastPos(getTransformedPoint(clientX, clientY));
+    }
   };
 
-  const handleEndDrawing = () => {
+  const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
+    const { clientX, clientY } = 'touches' in e ? e.touches[0] : e;
+
+    if (isPanning) {
+      e.preventDefault();
+      setOffset({
+        x: clientX - panStartRef.current.x,
+        y: clientY - panStartRef.current.y,
+      });
+      return;
+    }
+
+    if (isDrawing) {
+      e.preventDefault();
+      const currentPos = getTransformedPoint(clientX, clientY);
+      draw(currentPos);
+    }
+  };
+
+  const handlePointerUp = () => {
     setIsDrawing(false);
+    setIsPanning(false);
     setLastPos(null);
+  };
+  
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const scaleAmount = -e.deltaY * 0.001;
+    const newZoom = Math.max(0.1, Math.min(zoom * (1 + scaleAmount), 5));
+    
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const imageX = (mouseX - offset.x) / zoom;
+    const imageY = (mouseY - offset.y) / zoom;
+    
+    const newOffsetX = mouseX - imageX * newZoom;
+    const newOffsetY = mouseY - imageY * newZoom;
+
+    setZoom(newZoom);
+    setOffset({ x: newOffsetX, y: newOffsetY });
   };
   
   const handleClearMask = () => {
@@ -264,6 +303,17 @@ const MaskingEditor: React.FC<MaskingEditorProps> = ({ imageSrc, onRefineWithMas
     await onRefineWithMask(prompt, mask);
   };
 
+  const zoomControls = (
+      <div className="absolute bottom-4 left-4 bg-black/50 text-white rounded-lg p-1 flex items-center space-x-1 text-xs backdrop-blur-sm">
+          <button onClick={() => setZoom(z => Math.max(z / 1.2, 0.1))} className="p-2 rounded hover:bg-white/20" aria-label="Zoom out">-</button>
+          <span className="w-12 text-center font-semibold">{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoom(z => Math.min(z * 1.2, 5))} className="p-2 rounded hover:bg-white/20" aria-label="Zoom in">+</button>
+          <button onClick={resizeCanvases} className="p-2 rounded hover:bg-white/20" aria-label="Reset view">
+             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 0h-4m4 0l-5-5" /></svg>
+          </button>
+      </div>
+  );
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4 backdrop-blur-sm" aria-modal="true" role="dialog">
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-all animate-fade-in p-6 sm:p-8">
@@ -275,19 +325,22 @@ const MaskingEditor: React.FC<MaskingEditorProps> = ({ imageSrc, onRefineWithMas
         </div>
         
         <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
-          <div ref={containerRef} className="lg:col-span-2 relative flex items-center justify-center bg-slate-100 dark:bg-slate-800/50 rounded-lg overflow-hidden">
-            <canvas ref={imageCanvasRef} className="absolute top-0 left-0" />
-            <canvas 
-              ref={drawingCanvasRef} 
-              className="absolute top-0 left-0 cursor-crosshair touch-none"
-              onMouseDown={handleStartDrawing}
-              onMouseMove={draw}
-              onMouseUp={handleEndDrawing}
-              onMouseLeave={handleEndDrawing}
-              onTouchStart={handleStartDrawing}
-              onTouchMove={draw}
-              onTouchEnd={handleEndDrawing}
-            />
+          <div 
+            ref={containerRef} 
+            className={`lg:col-span-2 relative flex items-center justify-center bg-slate-100 dark:bg-slate-800/50 rounded-lg overflow-hidden touch-none ${isDrawing ? 'cursor-crosshair' : ''} ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+            onWheel={handleWheel}
+            onMouseDown={handlePointerDown}
+            onMouseMove={handlePointerMove}
+            onMouseUp={handlePointerUp}
+            onMouseLeave={handlePointerUp}
+            onTouchStart={handlePointerDown}
+            onTouchMove={handlePointerMove}
+            onTouchEnd={handlePointerUp}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <canvas ref={imageCanvasRef} className="absolute top-0 left-0" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`, transformOrigin: '0 0' }} />
+            <canvas ref={drawingCanvasRef} className="absolute top-0 left-0" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`, transformOrigin: '0 0' }}/>
+            {zoomControls}
           </div>
           
           <div className="flex flex-col space-y-4">
