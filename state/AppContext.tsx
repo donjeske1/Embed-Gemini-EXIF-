@@ -32,6 +32,7 @@ export interface AppState {
   isDescribing: boolean;
   isEmbedding: boolean;
   isFetchingExamples: boolean;
+  isMaskingModalOpen: boolean;
   error: string | null;
 
   // Generation Form State
@@ -76,6 +77,7 @@ export const initialState: AppState = {
   isDescribing: false,
   isEmbedding: false,
   isFetchingExamples: true,
+  isMaskingModalOpen: false,
   error: null,
   prompt: "A majestic bioluminescent jellyfish floating in a dark, deep ocean, surrounded by sparkling plankton.",
   model: 'gemini-2.5-flash-image',
@@ -130,6 +132,8 @@ export type Action =
   | { type: 'VALIDATE_EDITED_PROMPT' }
   | { type: 'TOGGLE_NIGHT_MODE' }
   | { type: 'CLEAR_HISTORY' }
+  | { type: 'OPEN_MASKING_MODAL' }
+  | { type: 'CLOSE_MASKING_MODAL' }
   | { type: 'SET_EXAMPLE_PROMPTS'; payload: { prompts: string[]; error?: string } };
 
 
@@ -208,6 +212,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             refinementPrompt: '',
             refinementStyle: '',
             refinementCreativeStrength: 'MEDIUM',
+            isMaskingModalOpen: false, // Close modal on success
         };
     }
     case 'SET_SELECTED_IMAGE_INDEX':
@@ -251,6 +256,10 @@ const appReducer = (state: AppState, action: Action): AppState => {
             activeBatchHistoryIds: null,
             selectedImageIndex: 0,
         };
+    case 'OPEN_MASKING_MODAL':
+      return { ...state, isMaskingModalOpen: true };
+    case 'CLOSE_MASKING_MODAL':
+      return { ...state, isMaskingModalOpen: false, isRefining: false };
     case 'VALIDATE_EDITED_PROMPT': {
         if (!state.extractedMetadata) return state;
         let isValid = false;

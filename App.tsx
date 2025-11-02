@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import type { CreativeStrength, ImageModel, AspectRatio } from './types';
 import { 
     generateImagesFromPrompt, 
@@ -19,6 +19,7 @@ import GenerationHistory from './components/GenerationHistory';
 import MetadataViewer from './components/MetadataViewer';
 import Settings from './components/Settings';
 import ApiKeyDialog from './components/ApiKeyDialog';
+import LoaderIcon from './components/ui/LoaderIcon';
 
 // To inform TypeScript about the global piexif object from the CDN script
 declare const piexif: any;
@@ -115,12 +116,243 @@ const downloadImage = async (dataUrl: string, filename: string) => {
   }
 };
 
+// --- Masking Editor Component ---
+interface MaskingEditorProps {
+  imageSrc: string;
+  onRefineWithMask: (prompt: string, mask: ReferenceImage) => Promise<void>;
+  isRefining: boolean;
+}
+
+const MaskingEditor: React.FC<MaskingEditorProps> = ({ imageSrc, onRefineWithMask, isRefining }) => {
+  const { dispatch } = useAppContext();
+  const [prompt, setPrompt] = useState('');
+  const [brushSize, setBrushSize] = useState(40);
+  
+  const imageCanvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [lastPos, setLastPos] = useState<{ x: number; y: number } | null>(null);
+
+  const resizeCanvases = useCallback(() => {
+    const image = new Image();
+    image.src = imageSrc;
+    image.onload = () => {
+        const container = containerRef.current;
+        const imageCanvas = imageCanvasRef.current;
+        const drawingCanvas = drawingCanvasRef.current;
+
+        if (!container || !imageCanvas || !drawingCanvas) return;
+        
+        const maxWidth = container.clientWidth;
+        const maxHeight = container.clientHeight;
+
+        const imageAspectRatio = image.width / image.height;
+        
+        let finalWidth = image.width;
+        let finalHeight = image.height;
+
+        if (finalWidth / maxWidth > finalHeight / maxHeight) {
+            finalWidth = maxWidth;
+            finalHeight = finalWidth / imageAspectRatio;
+        } else {
+            finalHeight = maxHeight;
+            finalWidth = finalHeight * imageAspectRatio;
+        }
+
+        [imageCanvas, drawingCanvas].forEach(canvas => {
+            canvas.width = finalWidth;
+            canvas.height = finalHeight;
+        });
+
+        const ctx = imageCanvas.getContext('2d');
+        ctx?.drawImage(image, 0, 0, finalWidth, finalHeight);
+    };
+  }, [imageSrc]);
+
+  useEffect(() => {
+    resizeCanvases();
+    window.addEventListener('resize', resizeCanvases);
+    return () => window.removeEventListener('resize', resizeCanvases);
+  }, [resizeCanvases]);
+
+  const getPointerPos = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = drawingCanvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    
+    let clientX, clientY;
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  };
+  
+  const draw = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawing) return;
+    const pos = getPointerPos(e);
+    if (!pos) return;
+
+    const ctx = drawingCanvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.beginPath();
+    if (lastPos) {
+       ctx.moveTo(lastPos.x, lastPos.y);
+    } else {
+       ctx.moveTo(pos.x, pos.y);
+    }
+    ctx.lineTo(pos.x, pos.y);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = brushSize;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    setLastPos(pos);
+  }, [isDrawing, lastPos, brushSize]);
+
+  const handleStartDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    setIsDrawing(true);
+    setLastPos(getPointerPos(e));
+  };
+
+  const handleEndDrawing = () => {
+    setIsDrawing(false);
+    setLastPos(null);
+  };
+  
+  const handleClearMask = () => {
+    const canvas = drawingCanvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (canvas && ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!prompt.trim()) return;
+    
+    const drawingCanvas = drawingCanvasRef.current;
+    if (!drawingCanvas) return;
+
+    // Create the final mask image (white on black) as required by the API.
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = drawingCanvas.width;
+    maskCanvas.height = drawingCanvas.height;
+    const maskCtx = maskCanvas.getContext('2d');
+    if (!maskCtx) return;
+
+    maskCtx.fillStyle = 'black';
+    maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+    maskCtx.drawImage(drawingCanvas, 0, 0);
+
+    const maskDataUrl = maskCanvas.toDataURL('image/png');
+    const [, data] = maskDataUrl.split(',');
+    const mask: ReferenceImage = { mimeType: 'image/png', data };
+    
+    await onRefineWithMask(prompt, mask);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4 backdrop-blur-sm" aria-modal="true" role="dialog">
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-all animate-fade-in p-6 sm:p-8">
+        <div className="flex justify-between items-center mb-4 flex-shrink-0">
+          <h2 className="text-2xl font-semibold text-indigo-500 dark:text-indigo-400">Refine with Mask</h2>
+          <button onClick={() => dispatch({ type: 'CLOSE_MASKING_MODAL' })} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" aria-label="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        
+        <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
+          <div ref={containerRef} className="lg:col-span-2 relative flex items-center justify-center bg-slate-100 dark:bg-slate-800/50 rounded-lg overflow-hidden">
+            <canvas ref={imageCanvasRef} className="absolute top-0 left-0" />
+            <canvas 
+              ref={drawingCanvasRef} 
+              className="absolute top-0 left-0 cursor-crosshair touch-none"
+              onMouseDown={handleStartDrawing}
+              onMouseMove={draw}
+              onMouseUp={handleEndDrawing}
+              onMouseLeave={handleEndDrawing}
+              onTouchStart={handleStartDrawing}
+              onTouchMove={draw}
+              onTouchEnd={handleEndDrawing}
+            />
+          </div>
+          
+          <div className="flex flex-col space-y-4">
+            <div>
+              <label htmlFor="mask-prompt" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Describe your edit
+              </label>
+              <textarea
+                id="mask-prompt"
+                value={prompt}
+                onChange={e => setPrompt(e.target.value)}
+                placeholder="e.g., Add a futuristic helmet to the person"
+                className="w-full h-32 p-3 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                disabled={isRefining}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="brush-size" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Brush Size: {brushSize}px
+              </label>
+              <input
+                id="brush-size"
+                type="range"
+                min="5"
+                max="100"
+                step="1"
+                value={brushSize}
+                onChange={e => setBrushSize(parseInt(e.target.value, 10))}
+                className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                disabled={isRefining}
+              />
+            </div>
+            
+            <div className="flex-grow"></div>
+
+            <div className="space-y-2">
+              <button
+                onClick={handleClearMask}
+                disabled={isRefining}
+                className="w-full flex justify-center items-center gap-2 bg-slate-500 hover:bg-slate-600 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                Clear Mask
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={isRefining || !prompt.trim()}
+                className="w-full flex justify-center items-center gap-2 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+              >
+                {isRefining ? <><LoaderIcon /> Refining...</> : 'Apply Refinement'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 // --- Main App Component ---
 
 const App: React.FC = () => {
   const { state, dispatch } = useAppContext();
-  const { view, mobileView, error, model, selectedImageIndex, activeHistoryId, activeBatchHistoryIds, generationHistory, refinementPrompt, generatedImages, generatedVideoUrl, isNightMode, refinementCreativeStrength, refinementStyle } = state;
+  const { view, mobileView, error, model, selectedImageIndex, activeHistoryId, activeBatchHistoryIds, generationHistory, refinementPrompt, generatedImages, generatedVideoUrl, isNightMode, refinementCreativeStrength, refinementStyle, isRefining } = state;
   const [hasApiKey, setHasApiKey] = useState(false);
 
   const checkApiKey = useCallback(async () => {
@@ -362,6 +594,66 @@ const App: React.FC = () => {
     }
   }, [generatedImages, activeHistoryId, activeBatchHistoryIds, refinementPrompt, selectedImageIndex, generationHistory, dispatch, refinementCreativeStrength, refinementStyle]);
 
+  const handleRefineWithMask = useCallback(async (promptFromModal: string, mask: ReferenceImage) => {
+    if (!generatedImages) return;
+
+    const historyIdToUse = activeBatchHistoryIds ? activeBatchHistoryIds[selectedImageIndex] : activeHistoryId;
+    const activeHistoryItem = generationHistory.find(h => h.id === historyIdToUse);
+
+    if (!activeHistoryItem) {
+        dispatch({ type: 'SET_ERROR', payload: "Could not find the active history item to refine." });
+        return;
+    }
+    
+    dispatch({ type: 'SET_REFINING', payload: true });
+    dispatch({ type: 'SET_ERROR', payload: null });
+
+    try {
+        const sourceImageDataUrl = generatedImages[selectedImageIndex];
+        const [meta, data] = sourceImageDataUrl.split(',');
+        const mimeType = meta.match(/:(.*?);/)?.[1] || 'image/jpeg';
+        const referenceImage: ReferenceImage = { mimeType, data };
+
+        const refinedBase64 = await refineImage(
+            promptFromModal, 
+            referenceImage, 
+            {}, // Creative strength/style options are not used for masked refinement
+            mask
+        );
+        
+        const isFromImagen = activeHistoryItem.metadata.model === 'imagen-4.0-generate-001';
+        
+        const refinementNote = isFromImagen
+          ? `\n\n---\n\nRefined (from Imagen, Masked) with Nano Banana: ${promptFromModal}`
+          : `\n\n---\n\nRefinement (Masked): ${promptFromModal}`;
+        
+        const newPromptForMetadata = activeHistoryItem.metadata.prompt + refinementNote;
+        const filenameSlug = await summarizePromptForFilename(newPromptForMetadata);
+        
+        const newMetadata: GenerationMetadata = {
+          ...activeHistoryItem.metadata,
+          prompt: newPromptForMetadata,
+          filenameSlug,
+          model: 'gemini-2.5-flash-image', // The refined image is always a product of Nano Banana.
+        };
+
+        const refinedImageWithMetadata = await embedMetadataInImage(refinedBase64, 'image/png', newMetadata);
+        
+        const updatedHistoryImages = activeBatchHistoryIds
+            ? [refinedImageWithMetadata]
+            : activeHistoryItem.images.map((img, index) =>
+                index === selectedImageIndex ? refinedImageWithMetadata : img
+              );
+
+        const newHistoryItem = { ...activeHistoryItem, images: updatedHistoryImages, metadata: newMetadata };
+
+        dispatch({ type: 'REFINEMENT_SUCCESS', payload: { newImage: refinedImageWithMetadata, newHistoryItem } });
+    } catch (e: any) {
+        dispatch({ type: 'SET_ERROR', payload: e.message || "An unknown error occurred during masked refinement." });
+        dispatch({ type: 'SET_REFINING', payload: false });
+    }
+  }, [generatedImages, activeHistoryId, activeBatchHistoryIds, selectedImageIndex, generationHistory, dispatch]);
+
   const handleSelectHistoryItem = useCallback((item: HistoryItem) => {
     dispatch({ type: 'SET_HISTORY_ITEM', payload: item });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -493,6 +785,13 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8">
+      {state.isMaskingModalOpen && generatedImages && (
+        <MaskingEditor
+            imageSrc={generatedImages[selectedImageIndex]}
+            onRefineWithMask={handleRefineWithMask}
+            isRefining={isRefining}
+        />
+      )}
       <ApiKeyDialog
         isOpen={view === 'video' && !hasApiKey}
         onKeySelected={handleApiKeySelected}

@@ -175,31 +175,41 @@ export const describeImageStream = async function* (referenceImage: ReferenceIma
 export const refineImage = async (
     prompt: string,
     referenceImage: ReferenceImage,
-    options: { creativeStrength?: CreativeStrength; style?: string } = {}
+    options: { creativeStrength?: CreativeStrength; style?: string } = {},
+    mask?: ReferenceImage
 ): Promise<string> => {
     try {
-        // For 'gemini-2.5-flash-image', text prompts and control parameters must be bundled into a single JSON string.
-        const logicalParts: any[] = [{ text: prompt }];
+        let textPromptPart: Part;
 
-        const control: { creativeStrength?: CreativeStrength; style?: string } = {};
-        if (options.creativeStrength) {
-            control.creativeStrength = options.creativeStrength;
-        }
-        if (options.style && options.style.trim()) {
-            control.style = options.style.trim();
+        if (mask) {
+            // For masking/inpainting, the model expects a simple text prompt describing the change.
+            textPromptPart = { text: prompt };
+        } else {
+            // For conversational refinement, we build a structured JSON prompt.
+            const logicalParts: any[] = [{ text: prompt }];
+            const control: { creativeStrength?: CreativeStrength; style?: string } = {};
+            if (options.creativeStrength) {
+                control.creativeStrength = options.creativeStrength;
+            }
+            if (options.style && options.style.trim()) {
+                control.style = options.style.trim();
+            }
+            if (Object.keys(control).length > 0) {
+                logicalParts.push({ control });
+            }
+            const jsonPromptString = JSON.stringify(logicalParts);
+            textPromptPart = { text: jsonPromptString };
         }
 
-        if (Object.keys(control).length > 0) {
-            logicalParts.push({ control });
-        }
-
-        const jsonPromptString = JSON.stringify(logicalParts);
-        
-        // The final parts array for the API call contains the image and the JSON string as a text part.
         const parts: Part[] = [
             { inlineData: { mimeType: referenceImage.mimeType, data: referenceImage.data } },
-            { text: jsonPromptString }
         ];
+
+        if (mask) {
+            parts.push({ inlineData: { mimeType: mask.mimeType, data: mask.data } });
+        }
+
+        parts.push(textPromptPart);
 
         const response = await getAiClient().models.generateContent({
             model: 'gemini-2.5-flash-image',

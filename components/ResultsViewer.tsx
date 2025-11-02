@@ -105,75 +105,91 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine, onDownloadImage
             )}
 
             {generatedImages[selectedImageIndex] && (
-                <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-semibold text-teal-500 dark:text-teal-400">Conversational Refinement</h3>
-                        <Tooltip position="right" tip="Edit the selected image by describing the changes you want to make. This uses the Nano Banana model.">
-                            <span className="inline-flex items-center text-slate-400 dark:text-slate-500">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                                </svg>
-                            </span>
-                        </Tooltip>
-                    </div>
-                    {isImagen && (
-                        <div className="p-3 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 rounded-lg text-sm mb-3">
-                            <p><strong>Note:</strong> Refining an Imagen result will use the <strong>Nano Banana</strong> model. The original high-quality image will be used as the reference.</p>
+                <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-semibold text-teal-500 dark:text-teal-400">Conversational Refinement</h3>
+                            <Tooltip position="right" tip="Edit the selected image by describing the changes you want to make. This uses the Nano Banana model.">
+                                <span className="inline-flex items-center text-slate-400 dark:text-slate-500">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                    </svg>
+                                </span>
+                            </Tooltip>
                         </div>
-                    )}
-                    <p className="text-sm text-slate-600 dark:text-slate-400">Describe a change to the selected image above.</p>
-                    <textarea
-                        value={refinementPrompt}
-                        onChange={(e) => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'refinementPrompt', value: e.target.value } })}
-                        placeholder="e.g., Make the jellyfish glow brighter, change the style to watercolor..."
-                        className="w-full h-24 p-3 bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono text-sm transition-colors duration-200"
-                    />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                Creative Strength
-                                <Tooltip position="top" tip="Controls how much the model adheres to the original image vs. the prompt. LOW sticks closer to the original image.">
-                                    <span className="inline-flex items-center ml-1 text-slate-400 dark:text-slate-500">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                                        </svg>
-                                    </span>
-                                </Tooltip>
-                            </label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {(['LOW', 'MEDIUM', 'HIGH'] as const).map(strength => (
-                                    <button 
-                                        key={strength} 
-                                        type="button" 
-                                        onClick={() => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'refinementCreativeStrength', value: strength } })} 
-                                        className={`py-2 text-xs rounded-lg transition-colors duration-200 ${refinementCreativeStrength === strength ? 'bg-teal-600 text-white ring-1 ring-teal-500' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}
-                                    >
-                                        {strength}
-                                    </button>
-                                ))}
+                        {isImagen && (
+                            <div className="p-3 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 rounded-lg text-sm">
+                                <p><strong>Note:</strong> Refining an Imagen result will use the <strong>Nano Banana</strong> model. The original high-quality image will be used as the reference.</p>
+                            </div>
+                        )}
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Describe a change to the selected image above.</p>
+                        <textarea
+                            value={refinementPrompt}
+                            onChange={(e) => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'refinementPrompt', value: e.target.value } })}
+                            placeholder="e.g., Make the jellyfish glow brighter, change the style to watercolor..."
+                            className="w-full h-24 p-3 bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono text-sm transition-colors duration-200"
+                        />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                    Creative Strength
+                                    <Tooltip position="top" tip="Controls how much the model adheres to the original image vs. the prompt. LOW sticks closer to the original image.">
+                                        <span className="inline-flex items-center ml-1 text-slate-400 dark:text-slate-500">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                            </svg>
+                                        </span>
+                                    </Tooltip>
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {(['LOW', 'MEDIUM', 'HIGH'] as const).map(strength => (
+                                        <button 
+                                            key={strength} 
+                                            type="button" 
+                                            onClick={() => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'refinementCreativeStrength', value: strength } })} 
+                                            className={`py-2 text-xs rounded-lg transition-colors duration-200 ${refinementCreativeStrength === strength ? 'bg-teal-600 text-white ring-1 ring-teal-500' : 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}
+                                        >
+                                            {strength}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <label htmlFor="refinement-style" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                    Style Reference
+                                </label>
+                                <input
+                                    id="refinement-style"
+                                    type="text"
+                                    value={refinementStyle}
+                                    onChange={(e) => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'refinementStyle', value: e.target.value } })}
+                                    placeholder="e.g., photorealistic"
+                                    className="w-full p-2 bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm transition-colors duration-200"
+                                />
                             </div>
                         </div>
-                        <div>
-                            <label htmlFor="refinement-style" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                Style Reference
-                            </label>
-                            <input
-                                id="refinement-style"
-                                type="text"
-                                value={refinementStyle}
-                                onChange={(e) => dispatch({ type: 'SET_FORM_FIELD', payload: { field: 'refinementStyle', value: e.target.value } })}
-                                placeholder="e.g., photorealistic"
-                                className="w-full p-2 bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm transition-colors duration-200"
-                            />
-                        </div>
+                        <button
+                            onClick={onRefine}
+                            disabled={isLoading || isRefining || !refinementPrompt.trim()}
+                            className="w-full flex justify-center items-center gap-2 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200"
+                        >
+                            {isRefining ? <><LoaderIcon /> Refining...</> : 'Apply Refinement'}
+                        </button>
                     </div>
-                    <button
-                        onClick={onRefine}
-                        disabled={isLoading || isRefining || !refinementPrompt.trim()}
-                        className="w-full flex justify-center items-center gap-2 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200"
-                    >
-                        {isRefining ? <><LoaderIcon /> Refining...</> : 'Refine Image'}
-                    </button>
+                    <div className="relative flex py-2 items-center">
+                        <div className="flex-grow border-t border-slate-300 dark:border-slate-700"></div>
+                        <span className="flex-shrink mx-4 text-slate-400 dark:text-slate-500 text-sm">OR</span>
+                        <div className="flex-grow border-t border-slate-300 dark:border-slate-700"></div>
+                    </div>
+                    <Tooltip tip="For precise edits, draw a mask over the area you want to change." className="w-full">
+                        <button
+                            onClick={() => dispatch({ type: 'OPEN_MASKING_MODAL' })}
+                            disabled={isLoading || isRefining}
+                            className="w-full flex justify-center items-center gap-2 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200"
+                        >
+                            🖌️ Refine with Mask
+                        </button>
+                    </Tooltip>
                 </div>
             )}
         </div>
