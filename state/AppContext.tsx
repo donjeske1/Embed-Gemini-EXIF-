@@ -66,6 +66,9 @@ export interface AppState {
   isPromptValid: boolean;
   isEditingPrompt: boolean;
   isDescriptionGenerated: boolean;
+
+  // Undo State
+  undoState: { image: string; historyItem: HistoryItem; selectedImageIndex: number } | null;
 }
 
 export const initialState: AppState = {
@@ -103,6 +106,7 @@ export const initialState: AppState = {
   isPromptValid: false,
   isEditingPrompt: false,
   isDescriptionGenerated: false,
+  undoState: null,
 };
 
 // --- ACTIONS ---
@@ -136,7 +140,9 @@ export type Action =
   | { type: 'OPEN_MASKING_MODAL' }
   | { type: 'CLOSE_MASKING_MODAL' }
   | { type: 'TOGGLE_FAVORITE'; payload: string }
-  | { type: 'SET_EXAMPLE_PROMPTS'; payload: { prompts: string[]; error?: string } };
+  | { type: 'SET_EXAMPLE_PROMPTS'; payload: { prompts: string[]; error?: string } }
+  | { type: 'SET_UNDO_STATE'; payload: { image: string; historyItem: HistoryItem; selectedImageIndex: number } | null }
+  | { type: 'EXECUTE_UNDO' };
 
 
 // --- REDUCER ---
@@ -144,7 +150,7 @@ export type Action =
 const appReducer = (state: AppState, action: Action): AppState => {
   switch (action.type) {
     case 'SET_VIEW':
-      return { ...state, view: action.payload, mobileView: 'form', error: null, generatedImages: null, generatedVideoUrl: null };
+      return { ...state, view: action.payload, mobileView: 'form', error: null, generatedImages: null, generatedVideoUrl: null, undoState: null };
     case 'SET_MOBILE_VIEW':
       return { ...state, mobileView: action.payload };
     case 'TOGGLE_NIGHT_MODE':
@@ -166,7 +172,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
     case 'SET_FORM_FIELD':
       return { ...state, [action.payload.field]: action.payload.value };
     case 'START_GENERATION':
-        return { ...state, isLoading: true, error: null, generatedImages: null, generatedVideoUrl: null, refinementPrompt: '', activeBatchHistoryIds: null, loadingMessage: null };
+        return { ...state, isLoading: true, error: null, generatedImages: null, generatedVideoUrl: null, refinementPrompt: '', activeBatchHistoryIds: null, loadingMessage: null, undoState: null };
     case 'GENERATION_SUCCESS':
         return {
             ...state,
@@ -178,6 +184,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             useWebSearch: false,
             selectedImageIndex: 0,
             mobileView: 'results',
+            undoState: null,
         };
     case 'BATCH_GENERATION_SUCCESS':
         return {
@@ -191,6 +198,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             useWebSearch: false,
             selectedImageIndex: 0,
             mobileView: 'results',
+            undoState: null,
         };
      case 'VIDEO_GENERATION_SUCCESS':
         return {
@@ -237,6 +245,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             error: null,
             refinementPrompt: '',
             mobileView: 'results',
+            undoState: null,
         };
     }
     case 'START_EXTRACTION':
@@ -257,6 +266,7 @@ const appReducer = (state: AppState, action: Action): AppState => {
             activeHistoryId: null,
             activeBatchHistoryIds: null,
             selectedImageIndex: 0,
+            undoState: null,
         };
     case 'OPEN_MASKING_MODAL':
       return { ...state, isMaskingModalOpen: true };
@@ -301,6 +311,33 @@ const appReducer = (state: AppState, action: Action): AppState => {
             examplePrompts: prompts,
             isFetchingExamples: false,
             error: error ? (state.error ? `${state.error}\n${error}` : error) : state.error,
+        };
+    }
+    case 'SET_UNDO_STATE':
+        return { ...state, undoState: action.payload };
+    case 'EXECUTE_UNDO': {
+        if (!state.undoState) return state;
+
+        const { image, historyItem, selectedImageIndex } = state.undoState;
+
+        const newGeneratedImages = [...(state.generatedImages || [])];
+        if (newGeneratedImages[selectedImageIndex]) {
+            newGeneratedImages[selectedImageIndex] = image;
+        }
+
+        const newGenerationHistory = state.generationHistory.map(item =>
+            item.id === historyItem.id ? historyItem : item
+        );
+
+        return {
+            ...state,
+            generatedImages: newGeneratedImages,
+            generationHistory: newGenerationHistory,
+            undoState: null, // Clear undo state after using it
+            error: null,
+            refinementPrompt: '',
+            refinementStyle: '',
+            refinementCreativeStrength: 'MEDIUM',
         };
     }
     default:

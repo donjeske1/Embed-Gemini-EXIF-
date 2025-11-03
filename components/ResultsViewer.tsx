@@ -5,12 +5,13 @@ import Tooltip from './ui/Tooltip';
 
 interface ResultsViewerProps {
     onRefine: () => void;
+    onUndo: () => void;
     onDownloadImage: (index: number) => void;
 }
 
-const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine, onDownloadImage }) => {
+const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine, onUndo, onDownloadImage }) => {
     const { state, dispatch } = useAppContext();
-    const { generatedImages, generatedVideoUrl, selectedImageIndex, isLoading, loadingMessage, isRefining, refinementPrompt, model, refinementCreativeStrength, refinementStyle, activeHistoryId, activeBatchHistoryIds, generationHistory } = state;
+    const { generatedImages, generatedVideoUrl, selectedImageIndex, isLoading, loadingMessage, isRefining, refinementPrompt, model, refinementCreativeStrength, refinementStyle, activeHistoryId, activeBatchHistoryIds, generationHistory, undoState } = state;
 
     const historyIdToUse = activeBatchHistoryIds ? activeBatchHistoryIds[selectedImageIndex] : activeHistoryId;
     const activeHistoryItem = generationHistory.find(h => h.id === historyIdToUse);
@@ -168,13 +169,28 @@ const ResultsViewer: React.FC<ResultsViewerProps> = ({ onRefine, onDownloadImage
                                 />
                             </div>
                         </div>
-                        <button
-                            onClick={onRefine}
-                            disabled={isLoading || isRefining || !refinementPrompt.trim()}
-                            className="w-full flex justify-center items-center gap-2 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200"
-                        >
-                            {isRefining ? <><LoaderIcon /> Refining...</> : 'Apply Refinement'}
-                        </button>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <button
+                                onClick={onRefine}
+                                disabled={isLoading || isRefining || !refinementPrompt.trim()}
+                                className="w-full flex justify-center items-center gap-2 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200 flex-grow"
+                            >
+                                {isRefining ? <><LoaderIcon /> Refining...</> : 'Apply Refinement'}
+                            </button>
+                            {undoState && undoState.selectedImageIndex === selectedImageIndex && (
+                                <Tooltip tip="Revert the last refinement applied to this image." className="flex-shrink-0">
+                                    <button
+                                        onClick={onUndo}
+                                        disabled={isLoading || isRefining}
+                                        className="w-full sm:w-auto flex justify-center items-center gap-2 bg-slate-500 hover:bg-slate-600 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+                                        aria-label="Undo last refinement"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                                        Undo
+                                    </button>
+                                </Tooltip>
+                            )}
+                        </div>
                     </div>
                     <div className="relative flex py-2 items-center">
                         <div className="flex-grow border-t border-slate-300 dark:border-slate-700"></div>

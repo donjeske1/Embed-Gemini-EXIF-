@@ -207,29 +207,31 @@ const MaskingEditor: React.FC<MaskingEditorProps> = ({ imageSrc, onRefineWithMas
   }, [lastPos, brushSize, zoom]);
 
   const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
-    const { clientX, clientY } = 'touches' in e ? e.touches[0] : e;
+    const nativeEvent = 'touches' in e ? e.nativeEvent : e;
+    const { clientX, clientY } = 'touches' in nativeEvent ? nativeEvent.touches[0] : nativeEvent;
     
     // Pan with middle mouse button, right-click, or Alt + left-click
-    if ('button' in e && (e.button === 1 || e.button === 2 || e.altKey)) {
-      e.preventDefault();
+    if ('button' in nativeEvent && (nativeEvent.button === 1 || nativeEvent.button === 2 || nativeEvent.altKey)) {
+      nativeEvent.preventDefault();
       setIsPanning(true);
       panStartRef.current = { x: clientX - offset.x, y: clientY - offset.y };
       return;
     }
     
     // Start drawing with left-click or single touch
-    if (('button' in e && e.button === 0) || 'touches' in e) {
-        e.preventDefault();
+    if (('button' in nativeEvent && nativeEvent.button === 0) || 'touches' in nativeEvent) {
+        nativeEvent.preventDefault();
         setIsDrawing(true);
         setLastPos(getTransformedPoint(clientX, clientY));
     }
   };
 
   const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
-    const { clientX, clientY } = 'touches' in e ? e.touches[0] : e;
+    const nativeEvent = 'touches' in e ? e.nativeEvent : e;
+    const { clientX, clientY } = 'touches' in nativeEvent ? nativeEvent.touches[0] : nativeEvent;
 
     if (isPanning) {
-      e.preventDefault();
+      nativeEvent.preventDefault();
       setOffset({
         x: clientX - panStartRef.current.x,
         y: clientY - panStartRef.current.y,
@@ -238,7 +240,7 @@ const MaskingEditor: React.FC<MaskingEditorProps> = ({ imageSrc, onRefineWithMas
     }
 
     if (isDrawing) {
-      e.preventDefault();
+      nativeEvent.preventDefault();
       const currentPos = getTransformedPoint(clientX, clientY);
       draw(currentPos);
     }
@@ -313,6 +315,9 @@ const MaskingEditor: React.FC<MaskingEditorProps> = ({ imageSrc, onRefineWithMas
           </button>
       </div>
   );
+  
+  const canPan = zoom > 1;
+  const cursorClass = isPanning ? 'cursor-grabbing' : isDrawing ? 'cursor-crosshair' : canPan ? 'cursor-grab' : '';
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4 backdrop-blur-sm" aria-modal="true" role="dialog">
@@ -327,7 +332,7 @@ const MaskingEditor: React.FC<MaskingEditorProps> = ({ imageSrc, onRefineWithMas
         <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
           <div 
             ref={containerRef} 
-            className={`lg:col-span-2 relative flex items-center justify-center bg-slate-100 dark:bg-slate-800/50 rounded-lg overflow-hidden touch-none ${isPanning ? 'cursor-grabbing' : isDrawing ? 'cursor-crosshair' : 'cursor-grab'}`}
+            className={`lg:col-span-2 relative flex items-center justify-center bg-slate-100 dark:bg-slate-800/50 rounded-lg overflow-hidden touch-none ${cursorClass}`}
             onWheel={handleWheel}
             onMouseDown={handlePointerDown}
             onMouseMove={handlePointerMove}
@@ -600,6 +605,14 @@ const App: React.FC = () => {
         return;
     }
     
+    dispatch({ 
+        type: 'SET_UNDO_STATE', 
+        payload: { 
+            image: generatedImages[selectedImageIndex], 
+            historyItem: activeHistoryItem, 
+            selectedImageIndex: selectedImageIndex 
+        } 
+    });
     dispatch({ type: 'SET_REFINING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
 
@@ -658,6 +671,14 @@ const App: React.FC = () => {
         return;
     }
     
+    dispatch({ 
+        type: 'SET_UNDO_STATE', 
+        payload: { 
+            image: generatedImages[selectedImageIndex], 
+            historyItem: activeHistoryItem, 
+            selectedImageIndex: selectedImageIndex 
+        } 
+    });
     dispatch({ type: 'SET_REFINING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
 
@@ -706,6 +727,10 @@ const App: React.FC = () => {
         dispatch({ type: 'SET_REFINING', payload: false });
     }
   }, [generatedImages, activeHistoryId, activeBatchHistoryIds, selectedImageIndex, generationHistory, dispatch]);
+
+  const handleUndo = useCallback(() => {
+    dispatch({ type: 'EXECUTE_UNDO' });
+  }, [dispatch]);
 
   const handleSelectHistoryItem = useCallback((item: HistoryItem) => {
     dispatch({ type: 'SET_HISTORY_ITEM', payload: item });
@@ -891,7 +916,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div className={`lg:col-span-3 mt-8 lg:mt-0 ${mobileView === 'form' ? 'hidden' : 'block'} lg:block`}>
-                  {hasResults && <ResultsViewer onRefine={handleRefine} onDownloadImage={handleDownloadSingleImage} />}
+                  {hasResults && <ResultsViewer onRefine={handleRefine} onUndo={handleUndo} onDownloadImage={handleDownloadSingleImage} />}
                   {hasHistory && <GenerationHistory onSelectItem={handleSelectHistoryItem} />}
                   {!hasResults && !hasHistory && (
                       <div className="h-full flex items-center justify-center text-center text-slate-500 bg-white/70 dark:bg-slate-900/70 rounded-xl p-8 min-h-[400px] lg:min-h-0">
@@ -912,7 +937,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <div className={`lg:col-span-3 mt-8 lg:mt-0 ${mobileView === 'form' ? 'hidden' : 'block'} lg:block`}>
-                  {hasResults && <ResultsViewer onRefine={() => {}} onDownloadImage={() => {}} />}
+                  {hasResults && <ResultsViewer onRefine={() => {}} onUndo={() => {}} onDownloadImage={() => {}} />}
                   {!hasResults && !hasHistory && (
                       <div className="h-full flex items-center justify-center text-center text-slate-500 bg-white/70 dark:bg-slate-900/70 rounded-xl p-8 min-h-[400px] lg:min-h-0">
                          <p>Your generated content and history will appear here.</p>
